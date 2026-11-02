@@ -58,31 +58,22 @@ public class SignalInterpreter {
             default: return "[????]";
         }
     }
-    public static String networkName(int type) {
-        switch (type) {
-            case 1: return "GPRS (2G)";
-            case 2: return "EDGE (2G)";
-            case 3: return "UMTS (3G)";
-            case 4: return "CDMA (2G)";
-            case 5: return "EVDO_0 (3G)";
-            case 6: return "EVDO_A (3G)";
-            case 7: return "1xRTT (2G)";
-            case 8: return "HSDPA (3G)";
-            case 9: return "HSUPA (3G)";
-            case 10: return "HSPA (3G)";
-            case 11: return "iDEN (2G)";
-            case 12: return "EVDO_B (3G)";
-            case 13: return "LTE (4G)";
-            case 14: return "eHRPD (3G)";
-            case 15: return "HSPAP (3G)";
-            case 16: return "GSM (2G)";
-            case 17: return "TD-SCDMA (3G)";
-            case 18: return "IWLAN";
+    public static String networkName(int t) {
+        switch (t) {
+            case 1: return "GPRS (2G)"; case 2: return "EDGE (2G)";
+            case 3: return "UMTS (3G)"; case 4: return "CDMA (2G)";
+            case 5: return "EVDO_0 (3G)"; case 6: return "EVDO_A (3G)";
+            case 7: return "1xRTT (2G)"; case 8: return "HSDPA (3G)";
+            case 9: return "HSUPA (3G)"; case 10: return "HSPA (3G)";
+            case 11: return "iDEN (2G)"; case 12: return "EVDO_B (3G)";
+            case 13: return "LTE (4G)"; case 14: return "eHRPD (3G)";
+            case 15: return "HSPAP (3G)"; case 16: return "GSM (2G)";
+            case 17: return "TD-SCDMA (3G)"; case 18: return "IWLAN";
             case 19: return "LTE-CA (4G+)";
-            default: return "UNKNOWN (" + type + ")";
+            default: return "UNKNOWN (" + t + ")";
         }
     }
-    public static boolean isLte(int t)  { return t == 13 || t == 19; }
+    public static boolean isLte(int t)   { return t == 13 || t == 19; }
     public static boolean isWcdma(int t) {
         return t == 3 || t == 5 || t == 6 || t == 8 || t == 9 ||
                t == 10 || t == 12 || t == 14 || t == 15 || t == 17;

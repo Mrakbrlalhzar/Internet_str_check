@@ -1,17 +1,9 @@
 package com.example.signaldeep;
-
 public class SignalSample {
     public long timestamp;
     public String networkType;
-    public int level;
-    public int power;
-    public int quality;
-    public int sinr;
-    public int cellId;
-    public int pci;
-    public int areaCode;
-    public int freqCode;
-    public int mcc, mnc;
+    public int level, power, quality, sinr;
+    public int cellId, pci, areaCode, freqCode, mcc, mnc;
     public int score;
     public String grade;
     public String fgApp;

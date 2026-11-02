@@ -27,13 +27,11 @@ import android.telephony.CellSignalStrengthLte;
 import android.telephony.CellSignalStrengthWcdma;
 import android.telephony.SignalStrength;
 import android.telephony.TelephonyManager;
-import android.util.Log;
 import androidx.core.app.NotificationCompat;
 import java.util.List;
 
 public class SignalSamplingService extends Service {
     private static final String CH = "signal_ch";
-    private static final String TAG = "SignalSampling";
     private Handler h;
     private Runnable r;
     private TelephonyManager tm;
@@ -49,19 +47,21 @@ public class SignalSamplingService extends Service {
         db = new DatabaseHelper(this);
 
         NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-        NotificationChannel ch = new NotificationChannel(CH, "Signal Sampling", NotificationManager.IMPORTANCE_LOW);
-        nm.createNotificationChannel(ch);
+        nm.createNotificationChannel(new NotificationChannel(CH, "Sampling", NotificationManager.IMPORTANCE_LOW));
         Notification n = new NotificationCompat.Builder(this, CH)
             .setContentTitle("SignalDeep Sampling")
-            .setContentText("Collecting signal data every 5s...")
+            .setContentText("Collecting every 5s...")
             .setSmallIcon(android.R.drawable.ic_menu_info_details)
             .build();
         startForeground(1, n);
+        SignalLogger.log("Service", "onCreate — sampling started");
 
         h = new Handler(Looper.getMainLooper());
         r = new Runnable() {
             @Override public void run() {
-                try { sample(); } catch (Throwable t) { Log.w(TAG, "sample", t); }
+                try { sample(); } catch (Throwable t) {
+                    SignalLogger.crash(t);
+                }
                 h.postDelayed(this, 5000);
             }
         };
@@ -71,21 +71,15 @@ public class SignalSamplingService extends Service {
     private void sample() {
         SignalSample s = new SignalSample();
         s.timestamp = System.currentTimeMillis();
-
         int dataType = 0;
         try {
             if (checkSelfPermission(android.Manifest.permission.READ_PHONE_STATE)
-                    == PackageManager.PERMISSION_GRANTED) {
-                dataType = tm.getDataNetworkType();
-            }
-        } catch (Throwable t) { Log.w(TAG, "type", t); }
-
+                    == PackageManager.PERMISSION_GRANTED) dataType = tm.getDataNetworkType();
+        } catch (Throwable t) { SignalLogger.debug("Service","type:"+t); }
         s.networkType = SignalInterpreter.networkName(dataType);
 
-        try {
-            SignalStrength ss = tm.getSignalStrength();
-            if (ss != null) s.level = ss.getLevel();
-        } catch (Throwable t) { Log.w(TAG, "ss", t); }
+        try { SignalStrength ss = tm.getSignalStrength(); if (ss != null) s.level = ss.getLevel(); }
+        catch (Throwable ignored) {}
 
         try {
             List<CellInfo> infos = tm.getAllCellInfo();
@@ -94,9 +88,7 @@ public class SignalSamplingService extends Service {
                     CellInfoLte c = (CellInfoLte) ci;
                     CellSignalStrengthLte sig = c.getCellSignalStrength();
                     CellIdentityLte id = c.getCellIdentity();
-                    s.power = sig.getRsrp();
-                    s.quality = sig.getRsrq();
-                    s.sinr = sig.getRssnr();
+                    s.power = sig.getRsrp(); s.quality = sig.getRsrq(); s.sinr = sig.getRssnr();
                     if (s.level == 0) s.level = sig.getLevel();
                     if (id.getCi() != Integer.MAX_VALUE) s.cellId = id.getCi();
                     if (id.getPci() != Integer.MAX_VALUE) s.pci = id.getPci();
@@ -114,9 +106,7 @@ public class SignalSamplingService extends Service {
                     s.power = sig.getDbm();
                     boolean hasEcno = Build.VERSION.SDK_INT >= 30;
                     int ecno = 0;
-                    if (hasEcno) {
-                        try { ecno = sig.getEcNo(); } catch (Throwable t) { hasEcno = false; }
-                    }
+                    if (hasEcno) { try { ecno = sig.getEcNo(); } catch (Throwable t) { hasEcno = false; } }
                     s.quality = hasEcno ? ecno : -99;
                     if (s.level == 0) s.level = sig.getLevel();
                     if (id.getCid() != Integer.MAX_VALUE) s.cellId = id.getCid();
@@ -133,15 +123,9 @@ public class SignalSamplingService extends Service {
                     CellInfoGsm c = (CellInfoGsm) ci;
                     CellSignalStrengthGsm sig = c.getCellSignalStrength();
                     CellIdentityGsm id = c.getCellIdentity();
-                    s.power = sig.getDbm();
-                    s.quality = sig.getBitErrorRate();
+                    s.power = sig.getDbm(); s.quality = sig.getBitErrorRate();
                     if (s.level == 0) s.level = sig.getLevel();
                     if (id.getCid() != Integer.MAX_VALUE) s.cellId = id.getCid();
-                    if (Build.VERSION.SDK_INT >= 30) {
-                        try {
-                            if (id.getBsic() != Integer.MAX_VALUE) s.pci = id.getBsic();
-                        } catch (Throwable ignored) {}
-                    }
                     if (id.getLac() != Integer.MAX_VALUE) s.areaCode = id.getLac();
                     if (id.getArfcn() != Integer.MAX_VALUE) s.freqCode = id.getArfcn();
                     if (id.getMcc() != Integer.MAX_VALUE) s.mcc = id.getMcc();
@@ -151,7 +135,7 @@ public class SignalSamplingService extends Service {
                     break;
                 }
             }
-        } catch (Throwable t) { Log.w(TAG, "cells", t); }
+        } catch (Throwable t) { SignalLogger.debug("Service","cells:"+t); }
 
         try {
             long now = System.currentTimeMillis();
@@ -160,7 +144,7 @@ public class SignalSamplingService extends Service {
             if (stats != null) for (UsageStats u : stats)
                 if (u.getLastTimeUsed() > latest) { latest = u.getLastTimeUsed(); fg = u.getPackageName(); }
             s.fgApp = fg;
-        } catch (Throwable t) { Log.w(TAG, "usage", t); }
+        } catch (Throwable ignored) {}
 
         try {
             if (wm != null && wm.isWifiEnabled()) {
@@ -169,12 +153,22 @@ public class SignalSamplingService extends Service {
                     s.wifiRssi = wi.getRssi(); s.wifiSsid = wi.getSSID();
                 }
             }
-        } catch (Throwable t) { Log.w(TAG, "wifi", t); }
+        } catch (Throwable ignored) {}
 
         db.insert(s);
+        SignalLogger.debug("Sample",
+            "net=" + s.networkType + " lvl=" + s.level +
+            " power=" + s.power + " q=" + s.quality + " sinr=" + s.sinr +
+            " cid=" + s.cellId + " pci=" + s.pci + " area=" + s.areaCode +
+            " freq=" + s.freqCode + " score=" + s.score +
+            " fg=" + s.fgApp + " wifi=" + s.wifiRssi);
     }
 
     @Override public int onStartCommand(Intent i, int f, int st) { return START_STICKY; }
-    @Override public void onDestroy() { if (h != null && r != null) h.removeCallbacks(r); super.onDestroy(); }
+    @Override public void onDestroy() {
+        SignalLogger.log("Service","onDestroy — sampling stopped");
+        if (h != null && r != null) h.removeCallbacks(r);
+        super.onDestroy();
+    }
     @Override public IBinder onBind(Intent i) { return null; }
 }

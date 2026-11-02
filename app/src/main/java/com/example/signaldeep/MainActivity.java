@@ -32,12 +32,8 @@ import java.util.List;
 public class MainActivity extends AppCompatActivity {
     public static String NATIVE_STATUS = "not loaded";
     static {
-        try {
-            System.loadLibrary("native-lib");
-            NATIVE_STATUS = "OK";
-        } catch (Throwable t) {
-            NATIVE_STATUS = "FAILED: " + t.getClass().getSimpleName() + ": " + t.getMessage();
-        }
+        try { System.loadLibrary("native-lib"); NATIVE_STATUS = "OK"; }
+        catch (Throwable t) { NATIVE_STATUS = "FAILED: " + t; }
     }
     public native String stringFromNative();
     public static native int nativeLteScore(int rsrp, int rsrq, int sinr);
@@ -55,26 +51,39 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         tvSignal = findViewById(R.id.tv_signal);
         tm = (TelephonyManager) getSystemService(TELEPHONY_SERVICE);
+        SignalLogger.log("Main","onCreate");
 
-        findViewById(R.id.btn_perms).setOnClickListener(v ->
-            ActivityCompat.requestPermissions(this, new String[]{
-                Manifest.permission.ACCESS_FINE_LOCATION,
-                Manifest.permission.READ_PHONE_STATE,
-                Manifest.permission.ACCESS_WIFI_STATE,
-                Manifest.permission.CHANGE_WIFI_STATE
-            }, 100));
+        findViewById(R.id.btn_perms).setOnClickListener(v -> {
+            String[] perms;
+            if (Build.VERSION.SDK_INT <= 28) {
+                perms = new String[]{
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.READ_PHONE_STATE,
+                    Manifest.permission.ACCESS_WIFI_STATE,
+                    Manifest.permission.CHANGE_WIFI_STATE,
+                    Manifest.permission.WRITE_EXTERNAL_STORAGE
+                };
+            } else {
+                perms = new String[]{
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.READ_PHONE_STATE,
+                    Manifest.permission.ACCESS_WIFI_STATE,
+                    Manifest.permission.CHANGE_WIFI_STATE
+                };
+            }
+            ActivityCompat.requestPermissions(this, perms, 100);
+        });
 
-        findViewById(R.id.btn_usage).setOnClickListener(v ->
-            startActivity(new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)));
+        findViewById(R.id.btn_usage).setOnClickListener(v -> {
+            startActivity(new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS));
+            SignalLogger.log("Main","opened Usage Access settings");
+        });
 
         findViewById(R.id.btn_start).setOnClickListener(v -> {
             try {
-                ContextCompat.startForegroundService(this,
-                    new Intent(this, SignalSamplingService.class));
+                ContextCompat.startForegroundService(this, new Intent(this, SignalSamplingService.class));
                 Toast.makeText(this, "Sampling started", Toast.LENGTH_SHORT).show();
-            } catch (Throwable t) {
-                Toast.makeText(this, "Err: " + t, Toast.LENGTH_LONG).show();
-            }
+            } catch (Throwable t) { SignalLogger.crash(t); }
         });
 
         findViewById(R.id.btn_stop).setOnClickListener(v -> {
@@ -84,6 +93,17 @@ public class MainActivity extends AppCompatActivity {
 
         findViewById(R.id.btn_history).setOnClickListener(v ->
             startActivity(new Intent(this, CorrelationActivity.class)));
+
+        findViewById(R.id.btn_loginfo).setOnClickListener(v -> {
+            java.io.File f = SignalLogger.getFile();
+            String path = (f == null) ? "unavailable" : f.getAbsolutePath();
+            new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Log file")
+                .setMessage(path + "\n\nTap OPEN to view in file manager.")
+                .setPositiveButton("OK", null)
+                .show();
+            SignalLogger.log("Main","log path: " + path);
+        });
     }
 
     @Override protected void onResume() { super.onResume(); handler.post(poller); }
@@ -96,6 +116,7 @@ public class MainActivity extends AppCompatActivity {
             sb.append("C++: ").append(stringFromNative()).append("\n\n");
             doRefresh(sb);
         } catch (Throwable t) {
+            SignalLogger.crash(t);
             StringWriter sw = new StringWriter();
             t.printStackTrace(new PrintWriter(sw));
             sb.append("\n=== ERROR in refresh ===\n").append(sw.toString());
@@ -107,13 +128,8 @@ public class MainActivity extends AppCompatActivity {
         int dataType = 0;
         try {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_STATE)
-                    == PackageManager.PERMISSION_GRANTED) {
-                dataType = tm.getDataNetworkType();
-            } else {
-                sb.append("Grant READ_PHONE_STATE to detect network type.\n");
-            }
-        } catch (Throwable t) { sb.append("Type error: ").append(t).append("\n"); }
-
+                    == PackageManager.PERMISSION_GRANTED) dataType = tm.getDataNetworkType();
+        } catch (Throwable t) { sb.append("type err: ").append(t).append("\n"); }
         sb.append("Active data: ").append(SignalInterpreter.networkName(dataType)).append("\n");
 
         boolean hasLoc = ContextCompat.checkSelfPermission(this,
@@ -122,20 +138,12 @@ public class MainActivity extends AppCompatActivity {
 
         SignalStrength ss = null;
         try { ss = tm.getSignalStrength(); } catch (Throwable ignored) {}
-        if (ss != null) {
-            int lvl = ss.getLevel();
-            sb.append("System level: ").append(lvl).append("/4 ")
-              .append(SignalInterpreter.bars(lvl)).append("\n");
-        }
+        if (ss != null) sb.append("System level: ").append(ss.getLevel()).append("/4 ")
+            .append(SignalInterpreter.bars(ss.getLevel())).append("\n");
 
         List<CellInfo> infos = null;
-        try { infos = tm.getAllCellInfo(); } catch (Throwable t) {
-            sb.append("getAllCellInfo error: ").append(t).append("\n");
-        }
-        if (infos == null || infos.isEmpty()) {
-            sb.append("No cell info available (Samsung often hides this).\n");
-            return;
-        }
+        try { infos = tm.getAllCellInfo(); } catch (Throwable t) { sb.append("getAllCellInfo err: ").append(t).append("\n"); }
+        if (infos == null || infos.isEmpty()) { sb.append("No cell info (Samsung often hides).\n"); return; }
 
         for (CellInfo ci : infos) {
             try {
@@ -147,12 +155,10 @@ public class MainActivity extends AppCompatActivity {
                     int score = nativeLteScore(rsrp, rsrq, sinr);
                     sb.append("=== 4G LTE ===\n");
                     sb.append("RSRP: ").append(rsrp).append(" dBm → ").append(SignalInterpreter.lteRsrpGrade(rsrp)).append("\n");
-                    sb.append("RSRQ: ").append(rsrq).append(" dB  → ").append(SignalInterpreter.lteRsrqGrade(rsrq)).append("\n");
-                    sb.append("SINR: ").append(sinr).append("     → ").append(SignalInterpreter.lteSinrGrade(sinr)).append("\n");
-                    sb.append("RSSI: ").append(sig.getRssi()).append(" dBm\n");
-                    sb.append("CQI:  ").append(sig.getCqi()).append("\n");
-                    sb.append("Level: ").append(sig.getLevel()).append("/4 ")
-                      .append(SignalInterpreter.bars(sig.getLevel())).append("\n");
+                    sb.append("RSRQ: ").append(rsrq).append(" dB → ").append(SignalInterpreter.lteRsrqGrade(rsrq)).append("\n");
+                    sb.append("SINR: ").append(sinr).append(" → ").append(SignalInterpreter.lteSinrGrade(sinr)).append("\n");
+                    sb.append("RSSI: ").append(sig.getRssi()).append(" dBm  CQI: ").append(sig.getCqi()).append("\n");
+                    sb.append("Level: ").append(sig.getLevel()).append("/4 ").append(SignalInterpreter.bars(sig.getLevel())).append("\n");
                     if (id.getCi() != Integer.MAX_VALUE) sb.append("CellID: ").append(id.getCi()).append("\n");
                     if (id.getPci() != Integer.MAX_VALUE) sb.append("PCI: ").append(id.getPci()).append("\n");
                     if (id.getTac() != Integer.MAX_VALUE) sb.append("TAC: ").append(id.getTac()).append("\n");
@@ -166,16 +172,13 @@ public class MainActivity extends AppCompatActivity {
                     int dbm = sig.getDbm();
                     boolean hasEcno = Build.VERSION.SDK_INT >= 30;
                     int ecno = 0;
-                    if (hasEcno) {
-                        try { ecno = sig.getEcNo(); } catch (Throwable t) { hasEcno = false; }
-                    }
+                    if (hasEcno) { try { ecno = sig.getEcNo(); } catch (Throwable t) { hasEcno = false; } }
                     int score = nativeWcdmaScore(dbm, ecno, hasEcno);
                     sb.append("=== 3G WCDMA ===\n");
                     sb.append("RSCP/Dbm: ").append(dbm).append(" dBm → ").append(SignalInterpreter.wcdmaDbmGrade(dbm)).append("\n");
-                    if (hasEcno) sb.append("Ec/Io:    ").append(ecno).append(" dB  → ").append(SignalInterpreter.wcdmaEcnoGrade(ecno)).append("\n");
-                    else sb.append("Ec/Io:    N/A (Android 8 — needs API 30+)\n");
-                    sb.append("Level: ").append(sig.getLevel()).append("/4 ")
-                      .append(SignalInterpreter.bars(sig.getLevel())).append("\n");
+                    if (hasEcno) sb.append("Ec/Io: ").append(ecno).append(" dB → ").append(SignalInterpreter.wcdmaEcnoGrade(ecno)).append("\n");
+                    else sb.append("Ec/Io: N/A (Android 8 — needs API 30+)\n");
+                    sb.append("Level: ").append(sig.getLevel()).append("/4 ").append(SignalInterpreter.bars(sig.getLevel())).append("\n");
                     if (id.getCid() != Integer.MAX_VALUE) sb.append("CellID: ").append(id.getCid()).append("\n");
                     if (id.getPsc() != Integer.MAX_VALUE) sb.append("PSC: ").append(id.getPsc()).append("\n");
                     if (id.getLac() != Integer.MAX_VALUE) sb.append("LAC: ").append(id.getLac()).append("\n");
@@ -189,14 +192,14 @@ public class MainActivity extends AppCompatActivity {
                     int dbm = sig.getDbm();
                     sb.append("=== 2G GSM ===\n");
                     sb.append("RxLev: ").append(dbm).append(" dBm → ").append(SignalInterpreter.gsmDbmGrade(dbm)).append("\n");
-                    sb.append("BER:   ").append(sig.getBitErrorRate()).append("\n");
-                    sb.append("Level: ").append(sig.getLevel()).append("/4 ")
-                      .append(SignalInterpreter.bars(sig.getLevel())).append("\n");
+                    sb.append("BER: ").append(sig.getBitErrorRate()).append("\n");
+                    sb.append("Level: ").append(sig.getLevel()).append("/4 ").append(SignalInterpreter.bars(sig.getLevel())).append("\n");
                     if (id.getCid() != Integer.MAX_VALUE) sb.append("CellID: ").append(id.getCid()).append("\n");
                     if (id.getLac() != Integer.MAX_VALUE) sb.append("LAC: ").append(id.getLac()).append("\n\n");
                 }
             } catch (Throwable t) {
-                sb.append("Cell parse error: ").append(t).append("\n\n");
+                SignalLogger.crash(t);
+                sb.append("Cell parse err: ").append(t).append("\n\n");
             }
         }
     }
