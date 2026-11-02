@@ -36,7 +36,7 @@ public class MainActivity extends AppCompatActivity {
         catch (Throwable t) { NATIVE_STATUS = "FAILED: " + t; }
     }
     public native String stringFromNative();
-    public static native int nativeLteScore(int rsrp, int rsrq, int sinr);
+    public static native int nativeLteScore(int rsrp, int rsrq, int sinr, int cqi);
     public static native int nativeWcdmaScore(int dbm, int ecno, boolean hasEcno);
 
     private TextView tvSignal;
@@ -149,7 +149,8 @@ public class MainActivity extends AppCompatActivity {
                     CellSignalStrengthLte sig = c.getCellSignalStrength();
                     CellIdentityLte id = c.getCellIdentity();
                     int rsrp = sig.getRsrp(), rsrq = sig.getRsrq(), sinr = sig.getRssnr();
-                    int score = nativeLteScore(rsrp, rsrq, sinr);
+                    int cqi = (Build.VERSION.SDK_INT >= 26) ? sig.getCqi() : -1;
+                    int score = nativeLteScore(rsrp, rsrq, sinr, cqi);
                     sb.append("=== 4G LTE ===\n");
                     sb.append("RSRP: ").append(rsrp).append(" dBm → ")
                       .append(SignalInterpreter.lteRsrpGrade(rsrp)).append("\n");
@@ -157,18 +158,16 @@ public class MainActivity extends AppCompatActivity {
                       .append(SignalInterpreter.lteRsrqGrade(rsrq)).append("\n");
                     sb.append("SINR: ").append(sinr).append(" → ")
                       .append(SignalInterpreter.lteSinrGrade(sinr)).append("\n");
-                    // RSSI is API 30+
+                    if (cqi >= 0) {
+                        sb.append("CQI:  ").append(cqi).append(" → ")
+                          .append(SignalInterpreter.lteCqiGrade(cqi)).append("\n");
+                    }
                     if (Build.VERSION.SDK_INT >= 30) {
                         try {
                             int rssi = sig.getRssi();
                             if (rssi > -128) sb.append("RSSI: ").append(rssi).append(" dBm\n");
                         } catch (Throwable ignored) {}
                     }
-                    // CQI is API 26+
-                    try {
-                        int cqi = sig.getCqi();
-                        if (cqi >= 0) sb.append("CQI:  ").append(cqi).append("\n");
-                    } catch (Throwable ignored) {}
                     sb.append("Level: ").append(sig.getLevel()).append("/4 ")
                       .append(SignalInterpreter.bars(sig.getLevel())).append("\n");
                     if (id.getCi() != Integer.MAX_VALUE) sb.append("CellID: ").append(id.getCi()).append("\n");

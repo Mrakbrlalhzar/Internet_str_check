@@ -86,6 +86,7 @@ public class SignalSamplingService extends Service {
                     s.power = sig.getRsrp();
                     s.quality = sig.getRsrq();
                     s.sinr = sig.getRssnr();
+                    s.cqi = (Build.VERSION.SDK_INT >= 26) ? sig.getCqi() : -1;
                     if (s.level == 0) s.level = sig.getLevel();
                     if (id.getCi() != Integer.MAX_VALUE) s.cellId = id.getCi();
                     if (id.getPci() != Integer.MAX_VALUE) s.pci = id.getPci();
@@ -93,7 +94,7 @@ public class SignalSamplingService extends Service {
                     if (id.getEarfcn() != Integer.MAX_VALUE) s.freqCode = id.getEarfcn();
                     if (id.getMcc() != Integer.MAX_VALUE) s.mcc = id.getMcc();
                     if (id.getMnc() != Integer.MAX_VALUE) s.mnc = id.getMnc();
-                    s.score = MainActivity.nativeLteScore(s.power, s.quality, s.sinr);
+                    s.score = MainActivity.nativeLteScore(s.power, s.quality, s.sinr, s.cqi);
                     s.grade = SignalInterpreter.lteRsrpGrade(s.power) + " / " + SignalInterpreter.lteRsrqGrade(s.quality);
                     break;
                 } else if (ci instanceof CellInfoWcdma && SignalInterpreter.isWcdma(dataType)) {
@@ -159,7 +160,7 @@ public class SignalSamplingService extends Service {
         db.insert(s);
         SignalLogger.debug("Sample",
             "net=" + s.networkType + " lvl=" + s.level +
-            " power=" + s.power + " q=" + s.quality + " sinr=" + s.sinr +
+            " power=" + s.power + " q=" + s.quality + " sinr=" + s.sinr + " cqi=" + s.cqi +
             " cid=" + s.cellId + " pci=" + s.pci + " area=" + s.areaCode +
             " freq=" + s.freqCode + " score=" + s.score +
             " fg=" + s.fgApp + " wifi=" + s.wifiRssi);

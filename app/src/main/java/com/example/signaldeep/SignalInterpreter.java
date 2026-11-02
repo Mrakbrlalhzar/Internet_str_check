@@ -2,11 +2,11 @@ package com.example.signaldeep;
 
 public class SignalInterpreter {
     public static String lteRsrpGrade(int v) {
-        if (v >= -80) return "EXCELLENT (4/4)";
-        if (v >= -90) return "GOOD (3/4)";
-        if (v >= -100) return "FAIR (2/4)";
-        if (v >= -110) return "POOR (1/4)";
-        if (v >= -120) return "VERY POOR (0/4)";
+        if (v >= -80) return "EXCELLENT";
+        if (v >= -90) return "GOOD";
+        if (v >= -100) return "FAIR";
+        if (v >= -110) return "POOR";
+        if (v >= -120) return "VERY POOR";
         return "NO SIGNAL";
     }
     public static String lteRsrqGrade(int v) {
@@ -22,11 +22,18 @@ public class SignalInterpreter {
         if (v >= 0)  return "POOR";
         return "VERY POOR (no data)";
     }
+    public static String lteCqiGrade(int v) {
+        if (v >= 13) return "EXCELLENT";
+        if (v >= 10) return "GOOD";
+        if (v >= 7)  return "FAIR";
+        if (v >= 1)  return "POOR";
+        return "NO DATA";
+    }
     public static String wcdmaDbmGrade(int v) {
-        if (v >= -70)  return "EXCELLENT (4/4)";
-        if (v >= -85)  return "GOOD (3/4)";
-        if (v >= -100) return "FAIR (2/4)";
-        if (v >= -110) return "POOR (1/4)";
+        if (v >= -70)  return "EXCELLENT";
+        if (v >= -85)  return "GOOD";
+        if (v >= -100) return "FAIR";
+        if (v >= -110) return "POOR";
         return "NO SIGNAL";
     }
     public static String wcdmaEcnoGrade(int v) {
@@ -36,10 +43,10 @@ public class SignalInterpreter {
         return "POOR";
     }
     public static String gsmDbmGrade(int v) {
-        if (v >= -75)  return "EXCELLENT (4/4)";
-        if (v >= -85)  return "GOOD (3/4)";
-        if (v >= -95)  return "FAIR (2/4)";
-        if (v >= -105) return "POOR (1/4)";
+        if (v >= -75)  return "EXCELLENT";
+        if (v >= -85)  return "GOOD";
+        if (v >= -95)  return "FAIR";
+        if (v >= -105) return "POOR";
         return "NO SIGNAL";
     }
     public static String scoreToGrade(int s) {

@@ -12,11 +12,11 @@ import java.util.List;
 import java.util.Locale;
 
 public class DatabaseHelper extends SQLiteOpenHelper {
-    public DatabaseHelper(Context c) { super(c, "signal.db", null, 2); }
+    public DatabaseHelper(Context c) { super(c, "signal.db", null, 3); }
     @Override public void onCreate(SQLiteDatabase db) {
         db.execSQL("CREATE TABLE samples (" +
             "id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER, net TEXT, " +
-            "lvl INTEGER, pw INTEGER, q INTEGER, sinr INTEGER, " +
+            "lvl INTEGER, pw INTEGER, q INTEGER, sinr INTEGER, cqi INTEGER, " +
             "cid INTEGER, pci INTEGER, area INTEGER, freq INTEGER, " +
             "mcc INTEGER, mnc INTEGER, score INTEGER, grade TEXT, " +
             "fg TEXT, wrssi INTEGER, wssid TEXT)");
@@ -29,7 +29,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         ContentValues v = new ContentValues();
         v.put("ts", s.timestamp); v.put("net", s.networkType);
         v.put("lvl", s.level); v.put("pw", s.power);
-        v.put("q", s.quality); v.put("sinr", s.sinr);
+        v.put("q", s.quality); v.put("sinr", s.sinr); v.put("cqi", s.cqi);
         v.put("cid", s.cellId); v.put("pci", s.pci);
         v.put("area", s.areaCode); v.put("freq", s.freqCode);
         v.put("mcc", s.mcc); v.put("mnc", s.mnc);
@@ -42,7 +42,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         List<String> out = new ArrayList<>();
         SQLiteDatabase db = getReadableDatabase();
         Cursor c = db.rawQuery(
-            "SELECT ts,net,lvl,pw,q,sinr,cid,pci,area,freq,score,grade,fg,wrssi " +
+            "SELECT ts,net,lvl,pw,q,sinr,cqi,cid,pci,area,freq,score,grade,fg,wrssi " +
             "FROM samples ORDER BY ts DESC LIMIT " + n, null);
         SimpleDateFormat f = new SimpleDateFormat("HH:mm:ss", Locale.US);
         while (c.moveToNext()) {
@@ -50,16 +50,18 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             sb.append(f.format(new Date(c.getLong(0)))).append("  ");
             sb.append(c.getString(1)).append("  ");
             sb.append(SignalInterpreter.bars(c.getInt(2))).append("\n");
-            sb.append("   Power=").append(c.getInt(3)).append("dBm  ");
-            sb.append("Q=").append(c.getInt(4)).append("  SINR=").append(c.getInt(5)).append("\n");
-            sb.append("   Cell=").append(c.getInt(6));
-            sb.append(" PCI/PSC=").append(c.getInt(7));
-            sb.append(" TAC/LAC=").append(c.getInt(8));
-            sb.append(" Freq=").append(c.getInt(9)).append("\n");
-            sb.append("   SCORE=").append(c.getInt(10)).append("/100  ").append(c.getString(11)).append("\n");
-            String fg = c.getString(12);
+            sb.append("   RSRP=").append(c.getInt(3)).append("dBm  ");
+            sb.append("RSRQ=").append(c.getInt(4)).append("dB  ");
+            sb.append("SINR=").append(c.getInt(5)).append("  ");
+            sb.append("CQI=").append(c.getInt(6)).append("\n");
+            sb.append("   Cell=").append(c.getInt(7));
+            sb.append(" PCI=").append(c.getInt(8));
+            sb.append(" TAC=").append(c.getInt(9));
+            sb.append(" EARFCN=").append(c.getInt(10)).append("\n");
+            sb.append("   SCORE=").append(c.getInt(11)).append("/100  ").append(c.getString(12)).append("\n");
+            String fg = c.getString(13);
             if (fg != null && !fg.isEmpty()) sb.append("   FG: ").append(fg).append("\n");
-            int wr = c.getInt(13);
+            int wr = c.getInt(14);
             if (wr != 0 && wr > -127 && wr < 0) sb.append("   WiFi: ").append(wr).append("dBm\n");
             out.add(sb.toString());
         }

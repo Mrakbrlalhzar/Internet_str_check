@@ -11,11 +11,12 @@ Java_com_example_signaldeep_MainActivity_stringFromNative(JNIEnv* env, jobject) 
 }
 extern "C" JNIEXPORT jint JNICALL
 Java_com_example_signaldeep_MainActivity_nativeLteScore(
-        JNIEnv*, jobject, jint rsrp, jint rsrq, jint sinr) {
+        JNIEnv*, jobject, jint rsrp, jint rsrq, jint sinr, jint cqi) {
     double qR = clamp01((rsrp + 130.0) / 50.0);
     double qQ = clamp01((rsrq + 20.0)  / 10.0);
     double qS = clamp01( sinr        / 20.0);
-    return (jint)std::lround(100.0 * (0.4*qR + 0.3*qQ + 0.3*qS));
+    double qC = (cqi >= 0) ? clamp01(cqi / 15.0) : 0.0;
+    return (jint)std::lround(100.0 * (0.35*qR + 0.25*qQ + 0.25*qS + 0.15*qC));
 }
 extern "C" JNIEXPORT jint JNICALL
 Java_com_example_signaldeep_MainActivity_nativeWcdmaScore(
