@@ -39,15 +39,27 @@ jobs:
           sudo mv gradle-8.7 /opt/gradle
           echo "/opt/gradle/bin" >> $GITHUB_PATH
 
-      - name: Create project files
+      # ============================================================
+      # مرحله جدید: ساخت settings.gradle و build.gradle قبل از wrapper
+      # ============================================================
+      - name: Setup Gradle repositories
         run: |
           set -e
-          mkdir -p app/src/main/java/com/example/signaldeep
-          mkdir -p app/src/main/res/layout
-          mkdir -p app/src/main/res/values
-          mkdir -p app/src/main/cpp
-
           cat > settings.gradle << 'EOF'
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
           rootProject.name = "SignalDeep"
           include ':app'
           EOF
@@ -57,6 +69,19 @@ jobs:
               id 'com.android.application' version '8.5.0' apply false
           }
           EOF
+
+          echo "=== settings.gradle ==="
+          cat settings.gradle
+          echo "=== build.gradle ==="
+          cat build.gradle
+
+      - name: Create project files
+        run: |
+          set -e
+          mkdir -p app/src/main/java/com/example/signaldeep
+          mkdir -p app/src/main/res/layout
+          mkdir -p app/src/main/res/values
+          mkdir -p app/src/main/cpp
 
           cat > gradle.properties << 'EOF'
           android.useAndroidX=true
