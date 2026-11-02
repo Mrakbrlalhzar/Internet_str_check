@@ -1,4 +1,4 @@
-name: Build SignalDeep APK (Native)
+name: Build SignalDeep APK
 
 on:
   push:
@@ -41,31 +41,30 @@ jobs:
 
       - name: Create project files
         run: |
-          # ... (ساختار پوشه‌ها مشابه قبل، فقط پوشه cpp اضافه می‌شود) ...
+          set -e
           mkdir -p app/src/main/java/com/example/signaldeep
           mkdir -p app/src/main/res/layout
           mkdir -p app/src/main/res/values
           mkdir -p app/src/main/cpp
 
-          # ========== تنظیمات Gradle (با NDK و CMake) ==========
-          cat > settings.gradle << 'EOF_SET'
+          cat > settings.gradle << 'EOF'
           rootProject.name = "SignalDeep"
           include ':app'
-          EOF_SET
+          EOF
 
-          cat > build.gradle << 'EOF_ROOT'
+          cat > build.gradle << 'EOF'
           plugins {
               id 'com.android.application' version '8.5.0' apply false
           }
-          EOF_ROOT
+          EOF
 
-          cat > gradle.properties << 'EOF_PROPS'
+          cat > gradle.properties << 'EOF'
           android.useAndroidX=true
           android.enableJetifier=false
           org.gradle.jvmargs=-Xmx2048m
-          EOF_PROPS
+          EOF
 
-          cat > app/build.gradle << 'EOF_APP'
+          cat > app/build.gradle << 'EOF'
           plugins {
               id 'com.android.application'
           }
@@ -107,19 +106,17 @@ jobs:
           dependencies {
               implementation 'androidx.appcompat:appcompat:1.7.0'
           }
-          EOF_APP
+          EOF
 
-          # ========== فایل CMakeLists.txt ==========
-          cat > app/src/main/cpp/CMakeLists.txt << 'EOF_CMAKE'
+          cat > app/src/main/cpp/CMakeLists.txt << 'EOF'
           cmake_minimum_required(VERSION 3.22.1)
           project("signaldeep")
-          add_library( native-lib SHARED native-lib.cpp )
-          find_library( log-lib log )
-          target_link_libraries( native-lib ${log-lib} )
-          EOF_CMAKE
+          add_library(native-lib SHARED native-lib.cpp)
+          find_library(log-lib log)
+          target_link_libraries(native-lib ${log-lib})
+          EOF
 
-          # ========== کد Native (C++) ==========
-          cat > app/src/main/cpp/native-lib.cpp << 'EOF_NATIVE'
+          cat > app/src/main/cpp/native-lib.cpp << 'EOF'
           #include <jni.h>
           #include <string>
           #include <android/log.h>
@@ -138,140 +135,188 @@ jobs:
           extern "C" JNIEXPORT jdouble JNICALL
           Java_com_example_signaldeep_SignalSamplingService_computeSignalScore(
                   JNIEnv* env, jobject /* this */, jint rsrp, jint rsrq, jint sinr) {
-              // یک محاسبه ساده نمونه در لایه Native
               double score = (rsrp + 140) * 0.5 + (rsrq + 20) * 0.3 + (sinr + 10) * 0.2;
               LOGI("Native computeScore: rsrp=%d, rsrq=%d, sinr=%d -> score=%.2f", rsrp, rsrq, sinr, score);
               return score;
           }
-          EOF_NATIVE
+          EOF
 
-          # ========== AndroidManifest (بدون تغییر) ==========
-          # ... محتوای قبلی AndroidManifest.xml را اینجا قرار بده ...
+          cat > app/src/main/AndroidManifest.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+              xmlns:tools="http://schemas.android.com/tools">
+              <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+              <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+              <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+              <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+              <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+              <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+              <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+              <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+              <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
+                  tools:ignore="ProtectedPermissions" />
+              <application
+                  android:allowBackup="true"
+                  android:label="@string/app_name"
+                  android:theme="@style/Theme.AppCompat.Light.DarkActionBar">
+                  <activity android:name=".MainActivity" android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+                  <activity android:name=".CorrelationActivity" android:exported="false" />
+                  <service android:name=".SignalSamplingService"
+                      android:foregroundServiceType="dataSync" />
+              </application>
+          </manifest>
+          EOF
 
-          # ========== فایل‌های Java (اصلاح‌شده برای فراخوانی Native) ==========
-          # ... سایر فایل‌های Java (SignalSample, DatabaseHelper, CorrelationActivity) بدون تغییر ...
+          cat > app/src/main/res/values/strings.xml << 'EOF'
+          <resources>
+              <string name="app_name">SignalDeep</string>
+          </resources>
+          EOF
 
-          cat > app/src/main/java/com/example/signaldeep/MainActivity.java << 'EOF_ACT'
+          cat > app/src/main/res/layout/activity_main.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:orientation="vertical"
+              android:padding="12dp"
+              android:layout_width="match_parent"
+              android:layout_height="match_parent">
+              <Button android:id="@+id/btn_perms"
+                  android:text="Grant Runtime Permissions"
+                  android:layout_width="match_parent"
+                  android:layout_height="wrap_content" />
+              <Button android:id="@+id/btn_usage"
+                  android:text="Grant Usage Access"
+                  android:layout_width="match_parent"
+                  android:layout_height="wrap_content" />
+              <Button android:id="@+id/btn_start"
+                  android:text="Start Sampling"
+                  android:layout_width="match_parent"
+                  android:layout_height="wrap_content" />
+              <Button android:id="@+id/btn_stop"
+                  android:text="Stop Sampling"
+                  android:layout_width="match_parent"
+                  android:layout_height="wrap_content" />
+              <Button android:id="@+id/btn_history"
+                  android:text="View History"
+                  android:layout_width="match_parent"
+                  android:layout_height="wrap_content" />
+              <ScrollView android:layout_width="match_parent"
+                  android:layout_height="0dp"
+                  android:layout_weight="1"
+                  android:layout_marginTop="8dp">
+                  <TextView android:id="@+id/tv_signal"
+                      android:textSize="14sp"
+                      android:fontFamily="monospace"
+                      android:layout_width="match_parent"
+                      android:layout_height="wrap_content" />
+              </ScrollView>
+          </LinearLayout>
+          EOF
+
+          cat > app/src/main/res/layout/activity_correlation.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:orientation="vertical"
+              android:padding="8dp"
+              android:layout_width="match_parent"
+              android:layout_height="match_parent">
+              <ListView android:id="@+id/list"
+                  android:layout_width="match_parent"
+                  android:layout_height="match_parent" />
+          </LinearLayout>
+          EOF
+
+          cat > app/src/main/java/com/example/signaldeep/SignalSample.java << 'EOF'
           package com.example.signaldeep;
 
-          import android.Manifest;
-          import android.content.Intent;
-          import android.content.pm.PackageManager;
-          import android.os.Bundle;
-          import android.os.Handler;
-          import android.os.Looper;
-          import android.provider.Settings;
-          import android.telephony.CellIdentityLte;
-          import android.telephony.CellInfo;
-          import android.telephony.CellInfoLte;
-          import android.telephony.CellSignalStrengthLte;
-          import android.telephony.SignalStrength;
-          import android.telephony.TelephonyManager;
-          import android.widget.TextView;
-          import android.widget.Toast;
-          import androidx.appcompat.app.AppCompatActivity;
-          import androidx.core.app.ActivityCompat;
-          import androidx.core.content.ContextCompat;
+          public class SignalSample {
+              public long timestamp;
+              public int rsrp, rsrq, rssi, sinr, level, cqi;
+              public int cellId, pci, earfcn;
+              public String foregroundApp;
+              public int wifiRssi;
+              public String wifiSsid;
+          }
+          EOF
+
+          cat > app/src/main/java/com/example/signaldeep/DatabaseHelper.java << 'EOF'
+          package com.example.signaldeep;
+
+          import android.content.ContentValues;
+          import android.content.Context;
+          import android.database.Cursor;
+          import android.database.sqlite.SQLiteDatabase;
+          import android.database.sqlite.SQLiteOpenHelper;
+          import java.util.ArrayList;
           import java.util.List;
 
-          public class MainActivity extends AppCompatActivity {
-              static {
-                  System.loadLibrary("native-lib");
-              }
-              public native String stringFromNative();
-
-              private TextView tvSignal;
-              private TelephonyManager tm;
-              private Handler handler = new Handler(Looper.getMainLooper());
-              private Runnable poller = new Runnable() {
-                  @Override public void run() { refresh(); handler.postDelayed(this, 3000); }
-              };
+          public class DatabaseHelper extends SQLiteOpenHelper {
+              public DatabaseHelper(Context c) { super(c, "signal.db", null, 1); }
 
               @Override
-              protected void onCreate(Bundle b) {
-                  super.onCreate(b);
-                  setContentView(R.layout.activity_main);
-                  tvSignal = findViewById(R.id.tv_signal);
-                  tm = (TelephonyManager) getSystemService(TELEPHONY_SERVICE);
-
-                  findViewById(R.id.btn_perms).setOnClickListener(v ->
-                      ActivityCompat.requestPermissions(this, new String[]{
-                          Manifest.permission.ACCESS_FINE_LOCATION,
-                          Manifest.permission.READ_PHONE_STATE,
-                          Manifest.permission.ACCESS_WIFI_STATE,
-                          Manifest.permission.CHANGE_WIFI_STATE
-                      }, 100));
-
-                  findViewById(R.id.btn_usage).setOnClickListener(v ->
-                      startActivity(new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)));
-
-                  findViewById(R.id.btn_start).setOnClickListener(v -> {
-                      try {
-                          ContextCompat.startForegroundService(MainActivity.this,
-                              new Intent(MainActivity.this, SignalSamplingService.class));
-                          Toast.makeText(MainActivity.this, "Sampling started", Toast.LENGTH_SHORT).show();
-                      } catch (Exception e) {
-                          Toast.makeText(MainActivity.this, "Err: " + e.getMessage(), Toast.LENGTH_LONG).show();
-                      }
-                  });
-
-                  findViewById(R.id.btn_stop).setOnClickListener(v -> {
-                      stopService(new Intent(MainActivity.this, SignalSamplingService.class));
-                      Toast.makeText(MainActivity.this, "Stopped", Toast.LENGTH_SHORT).show();
-                  });
-
-                  findViewById(R.id.btn_history).setOnClickListener(v ->
-                      startActivity(new Intent(MainActivity.this, CorrelationActivity.class)));
+              public void onCreate(SQLiteDatabase db) {
+                  db.execSQL("CREATE TABLE samples (" +
+                      "id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER, " +
+                      "rsrp INTEGER, rsrq INTEGER, rssi INTEGER, sinr INTEGER, " +
+                      "level INTEGER, cqi INTEGER, cellId INTEGER, pci INTEGER, " +
+                      "earfcn INTEGER, fg TEXT, wifiRssi INTEGER, wifiSsid TEXT)");
               }
 
-              @Override protected void onResume() { super.onResume(); handler.post(poller); }
-              @Override protected void onPause() { super.onPause(); handler.removeCallbacks(poller); }
+              @Override
+              public void onUpgrade(SQLiteDatabase db, int o, int n) {
+                  db.execSQL("DROP TABLE IF EXISTS samples");
+                  onCreate(db);
+              }
 
-              private void refresh() {
-                  StringBuilder sb = new StringBuilder();
-                  sb.append("Native says: ").append(stringFromNative()).append("\n\n");
-                  try {
-                      boolean hasLoc = ContextCompat.checkSelfPermission(this,
-                          Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
-                      if (!hasLoc) {
-                          sb.append("Grant runtime permissions first.\n");
-                      } else {
-                          SignalStrength ss = tm.getSignalStrength();
-                          if (ss != null) sb.append("System Level: ").append(ss.getLevel()).append("/4\n");
-                          List<CellInfo> infos = tm.getAllCellInfo();
-                          if (infos == null || infos.isEmpty()) {
-                              sb.append("No cell info available (Samsung often hides neighbor cells).\n");
-                          } else {
-                              for (CellInfo ci : infos) {
-                                  if (ci instanceof CellInfoLte) {
-                                      CellInfoLte c = (CellInfoLte) ci;
-                                      CellSignalStrengthLte sig = c.getCellSignalStrength();
-                                      CellIdentityLte id = c.getCellIdentity();
-                                      sb.append("=== LTE ===\n");
-                                      sb.append("RSRP: ").append(sig.getRsrp()).append(" dBm\n");
-                                      sb.append("RSRQ: ").append(sig.getRsrq()).append(" dB\n");
-                                      sb.append("RSSI: ").append(sig.getRssi()).append(" dBm\n");
-                                      sb.append("SINR: ").append(sig.getRssnr()).append("\n");
-                                      sb.append("Level: ").append(sig.getLevel()).append("/4\n");
-                                      sb.append("CQI: ").append(sig.getCqi()).append("\n");
-                                      sb.append("CellID: ").append(id.getCi()).append("\n");
-                                      sb.append("PCI: ").append(id.getPci()).append("\n");
-                                      sb.append("EARFCN: ").append(id.getEarfcn()).append("\n");
-                                      sb.append("TAC: ").append(id.getTac()).append("\n");
-                                      sb.append("MCC/MNC: ").append(id.getMcc()).append("/").append(id.getMnc()).append("\n");
-                                  }
-                              }
-                          }
-                      }
-                  } catch (Exception e) {
-                      sb.append("Err: ").append(e.getMessage()).append("\n");
+              public void insert(SignalSample s) {
+                  SQLiteDatabase db = getWritableDatabase();
+                  ContentValues v = new ContentValues();
+                  v.put("ts", s.timestamp);
+                  v.put("rsrp", s.rsrp); v.put("rsrq", s.rsrq);
+                  v.put("rssi", s.rssi); v.put("sinr", s.sinr);
+                  v.put("level", s.level); v.put("cqi", s.cqi);
+                  v.put("cellId", s.cellId); v.put("pci", s.pci);
+                  v.put("earfcn", s.earfcn);
+                  v.put("fg", s.foregroundApp);
+                  v.put("wifiRssi", s.wifiRssi); v.put("wifiSsid", s.wifiSsid);
+                  db.insert("samples", null, v);
+                  db.close();
+              }
+
+              public List<String> getRecent(int n) {
+                  List<String> out = new ArrayList<>();
+                  SQLiteDatabase db = getReadableDatabase();
+                  Cursor c = db.rawQuery(
+                      "SELECT ts, rsrp, rsrq, sinr, level, cellId, pci, earfcn, fg, wifiRssi " +
+                      "FROM samples ORDER BY ts DESC LIMIT " + n, null);
+                  while (c.moveToNext()) {
+                      StringBuilder sb = new StringBuilder();
+                      sb.append(new java.util.Date(c.getLong(0))).append("\n");
+                      sb.append("RSRP=").append(c.getInt(1)).append("dBm ");
+                      sb.append("RSRQ=").append(c.getInt(2)).append("dB ");
+                      sb.append("SINR=").append(c.getInt(3));
+                      sb.append(" Lvl=").append(c.getInt(4)).append("/4\n");
+                      sb.append("Cell=").append(c.getInt(5));
+                      sb.append(" PCI=").append(c.getInt(6));
+                      sb.append(" EARFCN=").append(c.getInt(7)).append("\n");
+                      sb.append("WiFi=").append(c.getInt(9)).append("dBm");
+                      String fg = c.getString(8);
+                      if (fg != null && !fg.isEmpty()) sb.append(" | FG:").append(fg);
+                      out.add(sb.toString());
                   }
-                  tvSignal.setText(sb.toString());
+                  c.close();
+                  db.close();
+                  return out;
               }
           }
-          EOF_ACT
+          EOF
 
-          cat > app/src/main/java/com/example/signaldeep/SignalSamplingService.java << 'EOF_SVC'
+          cat > app/src/main/java/com/example/signaldeep/SignalSamplingService.java << 'EOF'
           package com.example.signaldeep;
 
           import android.app.Notification;
@@ -419,6 +464,186 @@ jobs:
               @Override
               public IBinder onBind(Intent i) { return null; }
           }
-          EOF_SVC
+          EOF
 
-          # ... بقیه فایل‌های Java (SignalSample, DatabaseHelper, CorrelationActivity) و XMLها بدون تغییر ...
+          cat > app/src/main/java/com/example/signaldeep/MainActivity.java << 'EOF'
+          package com.example.signaldeep;
+
+          import android.Manifest;
+          import android.content.Intent;
+          import android.content.pm.PackageManager;
+          import android.os.Bundle;
+          import android.os.Handler;
+          import android.os.Looper;
+          import android.provider.Settings;
+          import android.telephony.CellIdentityLte;
+          import android.telephony.CellInfo;
+          import android.telephony.CellInfoLte;
+          import android.telephony.CellSignalStrengthLte;
+          import android.telephony.SignalStrength;
+          import android.telephony.TelephonyManager;
+          import android.widget.TextView;
+          import android.widget.Toast;
+          import androidx.appcompat.app.AppCompatActivity;
+          import androidx.core.app.ActivityCompat;
+          import androidx.core.content.ContextCompat;
+          import java.util.List;
+
+          public class MainActivity extends AppCompatActivity {
+              static {
+                  System.loadLibrary("native-lib");
+              }
+              public native String stringFromNative();
+
+              private TextView tvSignal;
+              private TelephonyManager tm;
+              private Handler handler = new Handler(Looper.getMainLooper());
+              private Runnable poller = new Runnable() {
+                  @Override public void run() { refresh(); handler.postDelayed(this, 3000); }
+              };
+
+              @Override
+              protected void onCreate(Bundle b) {
+                  super.onCreate(b);
+                  setContentView(R.layout.activity_main);
+                  tvSignal = findViewById(R.id.tv_signal);
+                  tm = (TelephonyManager) getSystemService(TELEPHONY_SERVICE);
+
+                  findViewById(R.id.btn_perms).setOnClickListener(v ->
+                      ActivityCompat.requestPermissions(this, new String[]{
+                          Manifest.permission.ACCESS_FINE_LOCATION,
+                          Manifest.permission.READ_PHONE_STATE,
+                          Manifest.permission.ACCESS_WIFI_STATE,
+                          Manifest.permission.CHANGE_WIFI_STATE
+                      }, 100));
+
+                  findViewById(R.id.btn_usage).setOnClickListener(v ->
+                      startActivity(new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)));
+
+                  findViewById(R.id.btn_start).setOnClickListener(v -> {
+                      try {
+                          ContextCompat.startForegroundService(MainActivity.this,
+                              new Intent(MainActivity.this, SignalSamplingService.class));
+                          Toast.makeText(MainActivity.this, "Sampling started", Toast.LENGTH_SHORT).show();
+                      } catch (Exception e) {
+                          Toast.makeText(MainActivity.this, "Err: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                      }
+                  });
+
+                  findViewById(R.id.btn_stop).setOnClickListener(v -> {
+                      stopService(new Intent(MainActivity.this, SignalSamplingService.class));
+                      Toast.makeText(MainActivity.this, "Stopped", Toast.LENGTH_SHORT).show();
+                  });
+
+                  findViewById(R.id.btn_history).setOnClickListener(v ->
+                      startActivity(new Intent(MainActivity.this, CorrelationActivity.class)));
+              }
+
+              @Override protected void onResume() { super.onResume(); handler.post(poller); }
+              @Override protected void onPause() { super.onPause(); handler.removeCallbacks(poller); }
+
+              private void refresh() {
+                  StringBuilder sb = new StringBuilder();
+                  sb.append("Native says: ").append(stringFromNative()).append("\n\n");
+                  try {
+                      boolean hasLoc = ContextCompat.checkSelfPermission(this,
+                          Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+                      if (!hasLoc) {
+                          sb.append("Grant runtime permissions first.\n");
+                      } else {
+                          SignalStrength ss = tm.getSignalStrength();
+                          if (ss != null) sb.append("System Level: ").append(ss.getLevel()).append("/4\n");
+                          List<CellInfo> infos = tm.getAllCellInfo();
+                          if (infos == null || infos.isEmpty()) {
+                              sb.append("No cell info available (Samsung often hides neighbor cells).\n");
+                          } else {
+                              for (CellInfo ci : infos) {
+                                  if (ci instanceof CellInfoLte) {
+                                      CellInfoLte c = (CellInfoLte) ci;
+                                      CellSignalStrengthLte sig = c.getCellSignalStrength();
+                                      CellIdentityLte id = c.getCellIdentity();
+                                      sb.append("=== LTE ===\n");
+                                      sb.append("RSRP: ").append(sig.getRsrp()).append(" dBm\n");
+                                      sb.append("RSRQ: ").append(sig.getRsrq()).append(" dB\n");
+                                      sb.append("RSSI: ").append(sig.getRssi()).append(" dBm\n");
+                                      sb.append("SINR: ").append(sig.getRssnr()).append("\n");
+                                      sb.append("Level: ").append(sig.getLevel()).append("/4\n");
+                                      sb.append("CQI: ").append(sig.getCqi()).append("\n");
+                                      sb.append("CellID: ").append(id.getCi()).append("\n");
+                                      sb.append("PCI: ").append(id.getPci()).append("\n");
+                                      sb.append("EARFCN: ").append(id.getEarfcn()).append("\n");
+                                      sb.append("TAC: ").append(id.getTac()).append("\n");
+                                      sb.append("MCC/MNC: ").append(id.getMcc()).append("/").append(id.getMnc()).append("\n");
+                                  }
+                              }
+                          }
+                      }
+                  } catch (Exception e) {
+                      sb.append("Err: ").append(e.getMessage()).append("\n");
+                  }
+                  tvSignal.setText(sb.toString());
+              }
+          }
+          EOF
+
+          cat > app/src/main/java/com/example/signaldeep/CorrelationActivity.java << 'EOF'
+          package com.example.signaldeep;
+
+          import android.os.Bundle;
+          import android.widget.ArrayAdapter;
+          import android.widget.ListView;
+          import androidx.appcompat.app.AppCompatActivity;
+          import java.util.List;
+
+          public class CorrelationActivity extends AppCompatActivity {
+              @Override
+              protected void onCreate(Bundle b) {
+                  super.onCreate(b);
+                  setContentView(R.layout.activity_correlation);
+                  ListView lv = findViewById(R.id.list);
+                  DatabaseHelper db = new DatabaseHelper(this);
+                  List<String> rows = db.getRecent(100);
+                  lv.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, rows));
+              }
+          }
+          EOF
+
+      - name: Verify all files present
+        run: |
+          set -e
+          echo "=== Project files ==="
+          find . -type f \( -name "*.gradle" -o -name "*.java" -o -name "*.xml" -o -name "*.cpp" -o -name "*.txt" -o -name "*.properties" \) | sort
+          for f in \
+            settings.gradle \
+            build.gradle \
+            gradle.properties \
+            app/build.gradle \
+            app/src/main/AndroidManifest.xml \
+            app/src/main/res/values/strings.xml \
+            app/src/main/res/layout/activity_main.xml \
+            app/src/main/res/layout/activity_correlation.xml \
+            app/src/main/java/com/example/signaldeep/SignalSample.java \
+            app/src/main/java/com/example/signaldeep/DatabaseHelper.java \
+            app/src/main/java/com/example/signaldeep/SignalSamplingService.java \
+            app/src/main/java/com/example/signaldeep/MainActivity.java \
+            app/src/main/java/com/example/signaldeep/CorrelationActivity.java \
+            app/src/main/cpp/CMakeLists.txt \
+            app/src/main/cpp/native-lib.cpp ; do
+            if [ ! -f "$f" ]; then
+              echo "MISSING: $f"
+              exit 1
+            fi
+            echo "OK: $f"
+          done
+
+      - name: Generate Gradle wrapper
+        run: gradle wrapper --gradle-version 8.7 --no-daemon
+
+      - name: Build debug APK
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: signal-deep-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
