@@ -1,3 +1,3 @@
 # ninja log v5
-0	649	1793646100478762328	CMakeFiles/native-lib.dir/native-lib.cpp.o	af56ae77e9dd995c
-651	688	1793646100522763476	/home/runner/work/Internet_str_check/Internet_str_check/app/build/intermediates/cxx/Debug/2o27371v/obj/arm64-v8a/libnative-lib.so	bafe53eace2f8750
+0	747	1793646744002974571	CMakeFiles/native-lib.dir/native-lib.cpp.o	af56ae77e9dd995c
+749	777	1793646744036974481	/home/runner/work/Internet_str_check/Internet_str_check/app/build/intermediates/cxx/Debug/2o27371v/obj/arm64-v8a/libnative-lib.so	bafe53eace2f8750

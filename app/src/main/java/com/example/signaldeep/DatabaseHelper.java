@@ -60,7 +60,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             String fg = c.getString(12);
             if (fg != null && !fg.isEmpty()) sb.append("   FG: ").append(fg).append("\n");
             int wr = c.getInt(13);
-            if (wr != 0) sb.append("   WiFi: ").append(wr).append("dBm\n");
+            if (wr != 0 && wr > -127 && wr < 0) sb.append("   WiFi: ").append(wr).append("dBm\n");
             out.add(sb.toString());
         }
         c.close(); db.close(); return out;

@@ -18,8 +18,9 @@ public class SignalInterpreter {
     public static String lteSinrGrade(int v) {
         if (v >= 20) return "EXCELLENT";
         if (v >= 13) return "GOOD";
-        if (v >= 0)  return "FAIR";
-        return "POOR";
+        if (v >= 5)  return "FAIR";
+        if (v >= 0)  return "POOR";
+        return "VERY POOR (no data)";
     }
     public static String wcdmaDbmGrade(int v) {
         if (v >= -70)  return "EXCELLENT (4/4)";
@@ -48,8 +49,8 @@ public class SignalInterpreter {
         if (s >= 20) return "POOR";
         return "VERY POOR";
     }
-    public static String bars(int level) {
-        switch (level) {
+    public static String bars(int lvl) {
+        switch (lvl) {
             case 0: return "[    ]";
             case 1: return "[|   ]";
             case 2: return "[||  ]";
@@ -73,7 +74,7 @@ public class SignalInterpreter {
             default: return "UNKNOWN (" + t + ")";
         }
     }
-    public static boolean isLte(int t)   { return t == 13 || t == 19; }
+    public static boolean isLte(int t) { return t == 13 || t == 19; }
     public static boolean isWcdma(int t) {
         return t == 3 || t == 5 || t == 6 || t == 8 || t == 9 ||
                t == 10 || t == 12 || t == 14 || t == 15 || t == 17;

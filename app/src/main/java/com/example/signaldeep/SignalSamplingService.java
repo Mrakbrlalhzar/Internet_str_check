@@ -45,23 +45,18 @@ public class SignalSamplingService extends Service {
         wm = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
         usm = (UsageStatsManager) getSystemService(Context.USAGE_STATS_SERVICE);
         db = new DatabaseHelper(this);
-
         NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         nm.createNotificationChannel(new NotificationChannel(CH, "Sampling", NotificationManager.IMPORTANCE_LOW));
         Notification n = new NotificationCompat.Builder(this, CH)
             .setContentTitle("SignalDeep Sampling")
             .setContentText("Collecting every 5s...")
-            .setSmallIcon(android.R.drawable.ic_menu_info_details)
-            .build();
+            .setSmallIcon(android.R.drawable.ic_menu_info_details).build();
         startForeground(1, n);
         SignalLogger.log("Service", "onCreate — sampling started");
-
         h = new Handler(Looper.getMainLooper());
         r = new Runnable() {
             @Override public void run() {
-                try { sample(); } catch (Throwable t) {
-                    SignalLogger.crash(t);
-                }
+                try { sample(); } catch (Throwable t) { SignalLogger.crash(t); }
                 h.postDelayed(this, 5000);
             }
         };
@@ -88,7 +83,9 @@ public class SignalSamplingService extends Service {
                     CellInfoLte c = (CellInfoLte) ci;
                     CellSignalStrengthLte sig = c.getCellSignalStrength();
                     CellIdentityLte id = c.getCellIdentity();
-                    s.power = sig.getRsrp(); s.quality = sig.getRsrq(); s.sinr = sig.getRssnr();
+                    s.power = sig.getRsrp();
+                    s.quality = sig.getRsrq();
+                    s.sinr = sig.getRssnr();
                     if (s.level == 0) s.level = sig.getLevel();
                     if (id.getCi() != Integer.MAX_VALUE) s.cellId = id.getCi();
                     if (id.getPci() != Integer.MAX_VALUE) s.pci = id.getPci();
@@ -123,7 +120,8 @@ public class SignalSamplingService extends Service {
                     CellInfoGsm c = (CellInfoGsm) ci;
                     CellSignalStrengthGsm sig = c.getCellSignalStrength();
                     CellIdentityGsm id = c.getCellIdentity();
-                    s.power = sig.getDbm(); s.quality = sig.getBitErrorRate();
+                    s.power = sig.getDbm();
+                    s.quality = sig.getBitErrorRate();
                     if (s.level == 0) s.level = sig.getLevel();
                     if (id.getCid() != Integer.MAX_VALUE) s.cellId = id.getCid();
                     if (id.getLac() != Integer.MAX_VALUE) s.areaCode = id.getLac();
@@ -149,8 +147,11 @@ public class SignalSamplingService extends Service {
         try {
             if (wm != null && wm.isWifiEnabled()) {
                 WifiInfo wi = wm.getConnectionInfo();
-                if (wi != null && wi.getRssi() < 0) {
-                    s.wifiRssi = wi.getRssi(); s.wifiSsid = wi.getSSID();
+                if (wi != null) {
+                    int wr = wi.getRssi();
+                    if (wr > -127 && wr < 0) {
+                        s.wifiRssi = wr; s.wifiSsid = wi.getSSID();
+                    }
                 }
             }
         } catch (Throwable ignored) {}
