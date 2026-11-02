@@ -89,8 +89,8 @@ jobs:
                   applicationId "com.example.signaldeep"
                   minSdk 26
                   targetSdk 34
-                  versionCode 2
-                  versionName "1.1"
+                  versionCode 3
+                  versionName "1.2"
                   externalNativeBuild { cmake { cppFlags "-std=c++17" } }
                   ndk { abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64' }
               }
@@ -108,7 +108,10 @@ jobs:
                   force 'org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.22'
               }
           }
-          dependencies { implementation 'androidx.appcompat:appcompat:1.7.0' }
+          dependencies {
+              implementation 'androidx.appcompat:appcompat:1.7.0'
+              implementation 'com.google.android.material:material:1.12.0'
+          }
           EOF
 
           cat > app/src/main/cpp/CMakeLists.txt << 'EOF'
@@ -131,13 +134,16 @@ jobs:
           Java_com_example_signaldeep_MainActivity_stringFromNative(JNIEnv* env, jobject) {
               return env->NewStringUTF("Native layer active (C++17)");
           }
+          // Updated score logic: includes CQI as a quality factor
           extern "C" JNIEXPORT jint JNICALL
           Java_com_example_signaldeep_MainActivity_nativeLteScore(
-                  JNIEnv*, jobject, jint rsrp, jint rsrq, jint sinr) {
+                  JNIEnv*, jobject, jint rsrp, jint rsrq, jint sinr, jint cqi) {
               double qR = clamp01((rsrp + 130.0) / 50.0);
               double qQ = clamp01((rsrq + 20.0)  / 10.0);
               double qS = clamp01( sinr        / 20.0);
-              return (jint)std::lround(100.0 * (0.4*qR + 0.3*qQ + 0.3*qS));
+              double qC = (cqi >= 0) ? clamp01(cqi / 15.0) : 0.0; // CQI 0-15
+              // Weighted average: RSRP 35%, RSRQ 25%, SINR 25%, CQI 15%
+              return (jint)std::lround(100.0 * (0.35*qR + 0.25*qQ + 0.25*qS + 0.15*qC));
           }
           extern "C" JNIEXPORT jint JNICALL
           Java_com_example_signaldeep_MainActivity_nativeWcdmaScore(
@@ -168,7 +174,7 @@ jobs:
                   android:name=".SignalDeepApp"
                   android:allowBackup="true"
                   android:label="@string/app_name"
-                  android:theme="@style/Theme.AppCompat.Light.DarkActionBar">
+                  android:theme="@style/Theme.Material3.DayNight.NoActionBar">
                   <activity android:name=".MainActivity" android:exported="true">
                       <intent-filter>
                           <action android:name="android.intent.action.MAIN" />
@@ -185,30 +191,91 @@ jobs:
           <resources><string name="app_name">SignalDeep</string></resources>
           EOF
 
+          cat > app/src/main/res/values/colors.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <color name="excellent">#4CAF50</color>
+              <color name="good">#8BC34A</color>
+              <color name="fair">#FFC107</color>
+              <color name="poor">#FF9800</color>
+              <color name="very_poor">#F44336</color>
+              <color name="card_bg">#1E1E2E</color>
+              <color name="text_primary">#E0E0E0</color>
+              <color name="text_secondary">#9E9E9E</color>
+              <color name="accent">#00BCD4</color>
+          </resources>
+          EOF
+
           cat > app/src/main/res/layout/activity_main.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
-          <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-              android:orientation="vertical" android:padding="10dp"
-              android:layout_width="match_parent" android:layout_height="match_parent">
-              <Button android:id="@+id/btn_perms" android:text="Grant Permissions"
-                  android:layout_width="match_parent" android:layout_height="wrap_content" />
-              <Button android:id="@+id/btn_usage" android:text="Grant Usage Access"
-                  android:layout_width="match_parent" android:layout_height="wrap_content" />
-              <Button android:id="@+id/btn_start" android:text="Start Sampling"
-                  android:layout_width="match_parent" android:layout_height="wrap_content" />
-              <Button android:id="@+id/btn_stop" android:text="Stop Sampling"
-                  android:layout_width="match_parent" android:layout_height="wrap_content" />
-              <Button android:id="@+id/btn_history" android:text="View History"
-                  android:layout_width="match_parent" android:layout_height="wrap_content" />
-              <Button android:id="@+id/btn_loginfo" android:text="Where is log file?"
-                  android:layout_width="match_parent" android:layout_height="wrap_content" />
-              <ScrollView android:layout_width="match_parent" android:layout_height="0dp"
-                  android:layout_weight="1" android:layout_marginTop="6dp">
-                  <TextView android:id="@+id/tv_signal" android:textSize="13sp"
+          <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+              xmlns:app="http://schemas.android.com/apk/res-auto"
+              android:layout_width="match_parent"
+              android:layout_height="match_parent"
+              android:background="#121212">
+              <LinearLayout
+                  android:orientation="vertical"
+                  android:padding="16dp"
+                  android:layout_width="match_parent"
+                  android:layout_height="wrap_content">
+
+                  <TextView
+                      android:text="SignalDeep"
+                      android:textSize="28sp"
+                      android:textStyle="bold"
+                      android:textColor="@color/accent"
+                      android:layout_width="wrap_content"
+                      android:layout_height="wrap_content" />
+
+                  <TextView
+                      android:text="Advanced LTE Signal Analyzer"
+                      android:textSize="14sp"
+                      android:textColor="@color/text_secondary"
+                      android:layout_marginBottom="16dp"
+                      android:layout_width="wrap_content"
+                      android:layout_height="wrap_content" />
+
+                  <com.google.android.material.button.MaterialButton
+                      android:id="@+id/btn_perms"
+                      android:text="Grant Permissions"
+                      android:layout_width="match_parent"
+                      android:layout_height="wrap_content" />
+                  <com.google.android.material.button.MaterialButton
+                      android:id="@+id/btn_usage"
+                      android:text="Grant Usage Access"
+                      android:layout_width="match_parent"
+                      android:layout_height="wrap_content" />
+                  <com.google.android.material.button.MaterialButton
+                      android:id="@+id/btn_start"
+                      android:text="Start Sampling"
+                      android:layout_width="match_parent"
+                      android:layout_height="wrap_content" />
+                  <com.google.android.material.button.MaterialButton
+                      android:id="@+id/btn_stop"
+                      android:text="Stop Sampling"
+                      android:layout_width="match_parent"
+                      android:layout_height="wrap_content" />
+                  <com.google.android.material.button.MaterialButton
+                      android:id="@+id/btn_history"
+                      android:text="View History"
+                      android:layout_width="match_parent"
+                      android:layout_height="wrap_content" />
+                  <com.google.android.material.button.MaterialButton
+                      android:id="@+id/btn_loginfo"
+                      android:text="Where is log file?"
+                      android:layout_width="match_parent"
+                      android:layout_height="wrap_content" />
+
+                  <TextView
+                      android:id="@+id/tv_signal"
+                      android:textSize="14sp"
+                      android:textColor="@color/text_primary"
                       android:fontFamily="monospace"
-                      android:layout_width="match_parent" android:layout_height="wrap_content" />
-              </ScrollView>
-          </LinearLayout>
+                      android:layout_marginTop="16dp"
+                      android:layout_width="match_parent"
+                      android:layout_height="wrap_content" />
+              </LinearLayout>
+          </ScrollView>
           EOF
 
           cat > app/src/main/res/layout/activity_correlation.xml << 'EOF'
@@ -325,11 +392,11 @@ jobs:
 
           public class SignalInterpreter {
               public static String lteRsrpGrade(int v) {
-                  if (v >= -80) return "EXCELLENT (4/4)";
-                  if (v >= -90) return "GOOD (3/4)";
-                  if (v >= -100) return "FAIR (2/4)";
-                  if (v >= -110) return "POOR (1/4)";
-                  if (v >= -120) return "VERY POOR (0/4)";
+                  if (v >= -80) return "EXCELLENT";
+                  if (v >= -90) return "GOOD";
+                  if (v >= -100) return "FAIR";
+                  if (v >= -110) return "POOR";
+                  if (v >= -120) return "VERY POOR";
                   return "NO SIGNAL";
               }
               public static String lteRsrqGrade(int v) {
@@ -345,11 +412,18 @@ jobs:
                   if (v >= 0)  return "POOR";
                   return "VERY POOR (no data)";
               }
+              public static String lteCqiGrade(int v) {
+                  if (v >= 13) return "EXCELLENT";
+                  if (v >= 10) return "GOOD";
+                  if (v >= 7)  return "FAIR";
+                  if (v >= 1)  return "POOR";
+                  return "NO DATA";
+              }
               public static String wcdmaDbmGrade(int v) {
-                  if (v >= -70)  return "EXCELLENT (4/4)";
-                  if (v >= -85)  return "GOOD (3/4)";
-                  if (v >= -100) return "FAIR (2/4)";
-                  if (v >= -110) return "POOR (1/4)";
+                  if (v >= -70)  return "EXCELLENT";
+                  if (v >= -85)  return "GOOD";
+                  if (v >= -100) return "FAIR";
+                  if (v >= -110) return "POOR";
                   return "NO SIGNAL";
               }
               public static String wcdmaEcnoGrade(int v) {
@@ -357,13 +431,6 @@ jobs:
                   if (v >= -8)  return "GOOD";
                   if (v >= -12) return "FAIR";
                   return "POOR";
-              }
-              public static String gsmDbmGrade(int v) {
-                  if (v >= -75)  return "EXCELLENT (4/4)";
-                  if (v >= -85)  return "GOOD (3/4)";
-                  if (v >= -95)  return "FAIR (2/4)";
-                  if (v >= -105) return "POOR (1/4)";
-                  return "NO SIGNAL";
               }
               public static String scoreToGrade(int s) {
                   if (s >= 85) return "EXCELLENT";
@@ -413,7 +480,7 @@ jobs:
           public class SignalSample {
               public long timestamp;
               public String networkType;
-              public int level, power, quality, sinr;
+              public int level, power, quality, sinr, cqi;
               public int cellId, pci, areaCode, freqCode, mcc, mnc;
               public int score;
               public String grade;
@@ -438,11 +505,11 @@ jobs:
           import java.util.Locale;
 
           public class DatabaseHelper extends SQLiteOpenHelper {
-              public DatabaseHelper(Context c) { super(c, "signal.db", null, 2); }
+              public DatabaseHelper(Context c) { super(c, "signal.db", null, 3); }
               @Override public void onCreate(SQLiteDatabase db) {
                   db.execSQL("CREATE TABLE samples (" +
                       "id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER, net TEXT, " +
-                      "lvl INTEGER, pw INTEGER, q INTEGER, sinr INTEGER, " +
+                      "lvl INTEGER, pw INTEGER, q INTEGER, sinr INTEGER, cqi INTEGER, " +
                       "cid INTEGER, pci INTEGER, area INTEGER, freq INTEGER, " +
                       "mcc INTEGER, mnc INTEGER, score INTEGER, grade TEXT, " +
                       "fg TEXT, wrssi INTEGER, wssid TEXT)");
@@ -455,7 +522,7 @@ jobs:
                   ContentValues v = new ContentValues();
                   v.put("ts", s.timestamp); v.put("net", s.networkType);
                   v.put("lvl", s.level); v.put("pw", s.power);
-                  v.put("q", s.quality); v.put("sinr", s.sinr);
+                  v.put("q", s.quality); v.put("sinr", s.sinr); v.put("cqi", s.cqi);
                   v.put("cid", s.cellId); v.put("pci", s.pci);
                   v.put("area", s.areaCode); v.put("freq", s.freqCode);
                   v.put("mcc", s.mcc); v.put("mnc", s.mnc);
@@ -468,7 +535,7 @@ jobs:
                   List<String> out = new ArrayList<>();
                   SQLiteDatabase db = getReadableDatabase();
                   Cursor c = db.rawQuery(
-                      "SELECT ts,net,lvl,pw,q,sinr,cid,pci,area,freq,score,grade,fg,wrssi " +
+                      "SELECT ts,net,lvl,pw,q,sinr,cqi,cid,pci,area,freq,score,grade,fg,wrssi " +
                       "FROM samples ORDER BY ts DESC LIMIT " + n, null);
                   SimpleDateFormat f = new SimpleDateFormat("HH:mm:ss", Locale.US);
                   while (c.moveToNext()) {
@@ -476,16 +543,18 @@ jobs:
                       sb.append(f.format(new Date(c.getLong(0)))).append("  ");
                       sb.append(c.getString(1)).append("  ");
                       sb.append(SignalInterpreter.bars(c.getInt(2))).append("\n");
-                      sb.append("   Power=").append(c.getInt(3)).append("dBm  ");
-                      sb.append("Q=").append(c.getInt(4)).append("  SINR=").append(c.getInt(5)).append("\n");
-                      sb.append("   Cell=").append(c.getInt(6));
-                      sb.append(" PCI/PSC=").append(c.getInt(7));
-                      sb.append(" TAC/LAC=").append(c.getInt(8));
-                      sb.append(" Freq=").append(c.getInt(9)).append("\n");
-                      sb.append("   SCORE=").append(c.getInt(10)).append("/100  ").append(c.getString(11)).append("\n");
-                      String fg = c.getString(12);
+                      sb.append("   RSRP=").append(c.getInt(3)).append("dBm  ");
+                      sb.append("RSRQ=").append(c.getInt(4)).append("dB  ");
+                      sb.append("SINR=").append(c.getInt(5)).append("  ");
+                      sb.append("CQI=").append(c.getInt(6)).append("\n");
+                      sb.append("   Cell=").append(c.getInt(7));
+                      sb.append(" PCI=").append(c.getInt(8));
+                      sb.append(" TAC=").append(c.getInt(9));
+                      sb.append(" EARFCN=").append(c.getInt(10)).append("\n");
+                      sb.append("   SCORE=").append(c.getInt(11)).append("/100  ").append(c.getString(12)).append("\n");
+                      String fg = c.getString(13);
                       if (fg != null && !fg.isEmpty()) sb.append("   FG: ").append(fg).append("\n");
-                      int wr = c.getInt(13);
+                      int wr = c.getInt(14);
                       if (wr != 0 && wr > -127 && wr < 0) sb.append("   WiFi: ").append(wr).append("dBm\n");
                       out.add(sb.toString());
                   }
@@ -583,6 +652,7 @@ jobs:
                               s.power = sig.getRsrp();
                               s.quality = sig.getRsrq();
                               s.sinr = sig.getRssnr();
+                              s.cqi = (Build.VERSION.SDK_INT >= 26) ? sig.getCqi() : -1;
                               if (s.level == 0) s.level = sig.getLevel();
                               if (id.getCi() != Integer.MAX_VALUE) s.cellId = id.getCi();
                               if (id.getPci() != Integer.MAX_VALUE) s.pci = id.getPci();
@@ -590,7 +660,7 @@ jobs:
                               if (id.getEarfcn() != Integer.MAX_VALUE) s.freqCode = id.getEarfcn();
                               if (id.getMcc() != Integer.MAX_VALUE) s.mcc = id.getMcc();
                               if (id.getMnc() != Integer.MAX_VALUE) s.mnc = id.getMnc();
-                              s.score = MainActivity.nativeLteScore(s.power, s.quality, s.sinr);
+                              s.score = MainActivity.nativeLteScore(s.power, s.quality, s.sinr, s.cqi);
                               s.grade = SignalInterpreter.lteRsrpGrade(s.power) + " / " + SignalInterpreter.lteRsrqGrade(s.quality);
                               break;
                           } else if (ci instanceof CellInfoWcdma && SignalInterpreter.isWcdma(dataType)) {
@@ -656,7 +726,7 @@ jobs:
                   db.insert(s);
                   SignalLogger.debug("Sample",
                       "net=" + s.networkType + " lvl=" + s.level +
-                      " power=" + s.power + " q=" + s.quality + " sinr=" + s.sinr +
+                      " power=" + s.power + " q=" + s.quality + " sinr=" + s.sinr + " cqi=" + s.cqi +
                       " cid=" + s.cellId + " pci=" + s.pci + " area=" + s.areaCode +
                       " freq=" + s.freqCode + " score=" + s.score +
                       " fg=" + s.fgApp + " wifi=" + s.wifiRssi);
@@ -711,7 +781,7 @@ jobs:
                   catch (Throwable t) { NATIVE_STATUS = "FAILED: " + t; }
               }
               public native String stringFromNative();
-              public static native int nativeLteScore(int rsrp, int rsrq, int sinr);
+              public static native int nativeLteScore(int rsrp, int rsrq, int sinr, int cqi);
               public static native int nativeWcdmaScore(int dbm, int ecno, boolean hasEcno);
 
               private TextView tvSignal;
@@ -824,7 +894,8 @@ jobs:
                               CellSignalStrengthLte sig = c.getCellSignalStrength();
                               CellIdentityLte id = c.getCellIdentity();
                               int rsrp = sig.getRsrp(), rsrq = sig.getRsrq(), sinr = sig.getRssnr();
-                              int score = nativeLteScore(rsrp, rsrq, sinr);
+                              int cqi = (Build.VERSION.SDK_INT >= 26) ? sig.getCqi() : -1;
+                              int score = nativeLteScore(rsrp, rsrq, sinr, cqi);
                               sb.append("=== 4G LTE ===\n");
                               sb.append("RSRP: ").append(rsrp).append(" dBm → ")
                                 .append(SignalInterpreter.lteRsrpGrade(rsrp)).append("\n");
@@ -832,6 +903,10 @@ jobs:
                                 .append(SignalInterpreter.lteRsrqGrade(rsrq)).append("\n");
                               sb.append("SINR: ").append(sinr).append(" → ")
                                 .append(SignalInterpreter.lteSinrGrade(sinr)).append("\n");
+                              if (cqi >= 0) {
+                                  sb.append("CQI:  ").append(cqi).append(" → ")
+                                    .append(SignalInterpreter.lteCqiGrade(cqi)).append("\n");
+                              }
                               // RSSI is API 30+
                               if (Build.VERSION.SDK_INT >= 30) {
                                   try {
@@ -839,11 +914,6 @@ jobs:
                                       if (rssi > -128) sb.append("RSSI: ").append(rssi).append(" dBm\n");
                                   } catch (Throwable ignored) {}
                               }
-                              // CQI is API 26+
-                              try {
-                                  int cqi = sig.getCqi();
-                                  if (cqi >= 0) sb.append("CQI:  ").append(cqi).append("\n");
-                              } catch (Throwable ignored) {}
                               sb.append("Level: ").append(sig.getLevel()).append("/4 ")
                                 .append(SignalInterpreter.bars(sig.getLevel())).append("\n");
                               if (id.getCi() != Integer.MAX_VALUE) sb.append("CellID: ").append(id.getCi()).append("\n");
