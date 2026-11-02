@@ -11,6 +11,7 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
+import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
@@ -39,7 +40,6 @@ public class SignalSamplingService extends Service {
     private WifiManager wm;
     private DatabaseHelper db;
     private UsageStatsManager usm;
-    private MainActivity nat;
 
     @Override public void onCreate() {
         super.onCreate();
@@ -61,7 +61,7 @@ public class SignalSamplingService extends Service {
         h = new Handler(Looper.getMainLooper());
         r = new Runnable() {
             @Override public void run() {
-                try { sample(); } catch (Exception e) { Log.w(TAG, "sample", e); }
+                try { sample(); } catch (Throwable t) { Log.w(TAG, "sample", t); }
                 h.postDelayed(this, 5000);
             }
         };
@@ -78,74 +78,80 @@ public class SignalSamplingService extends Service {
                     == PackageManager.PERMISSION_GRANTED) {
                 dataType = tm.getDataNetworkType();
             }
-        } catch (Exception e) { Log.w(TAG, "type", e); }
+        } catch (Throwable t) { Log.w(TAG, "type", t); }
 
         s.networkType = SignalInterpreter.networkName(dataType);
 
         try {
             SignalStrength ss = tm.getSignalStrength();
             if (ss != null) s.level = ss.getLevel();
-        } catch (Exception e) { Log.w(TAG, "ss", e); }
+        } catch (Throwable t) { Log.w(TAG, "ss", t); }
 
         try {
             List<CellInfo> infos = tm.getAllCellInfo();
-            if (infos != null) {
-                for (CellInfo ci : infos) {
-                    if (ci instanceof CellInfoLte && SignalInterpreter.isLte(dataType)) {
-                        CellInfoLte c = (CellInfoLte) ci;
-                        CellSignalStrengthLte sig = c.getCellSignalStrength();
-                        CellIdentityLte id = c.getCellIdentity();
-                        s.power = sig.getRsrp();
-                        s.quality = sig.getRsrq();
-                        s.sinr = sig.getRssnr();
-                        if (s.level == 0) s.level = sig.getLevel();
-                        if (id.getCi() != Integer.MAX_VALUE) s.cellId = id.getCi();
-                        if (id.getPci() != Integer.MAX_VALUE) s.pci = id.getPci();
-                        if (id.getTac() != Integer.MAX_VALUE) s.areaCode = id.getTac();
-                        if (id.getEarfcn() != Integer.MAX_VALUE) s.freqCode = id.getEarfcn();
-                        if (id.getMcc() != Integer.MAX_VALUE) s.mcc = id.getMcc();
-                        if (id.getMnc() != Integer.MAX_VALUE) s.mnc = id.getMnc();
-                        s.score = MainActivity.nativeLteScore(s.power, s.quality, s.sinr);
-                        s.grade = SignalInterpreter.lteRsrpGrade(s.power) + " / " + SignalInterpreter.lteRsrqGrade(s.quality);
-                        break;
-                    } else if (ci instanceof CellInfoWcdma && SignalInterpreter.isWcdma(dataType)) {
-                        CellInfoWcdma c = (CellInfoWcdma) ci;
-                        CellSignalStrengthWcdma sig = c.getCellSignalStrength();
-                        CellIdentityWcdma id = c.getCellIdentity();
-                        s.power = sig.getDbm();
-                        s.quality = sig.getEcNo();
-                        s.sinr = 0;
-                        if (s.level == 0) s.level = sig.getLevel();
-                        if (id.getCid() != Integer.MAX_VALUE) s.cellId = id.getCid();
-                        if (id.getPsc() != Integer.MAX_VALUE) s.pci = id.getPsc();
-                        if (id.getLac() != Integer.MAX_VALUE) s.areaCode = id.getLac();
-                        if (id.getUarfcn() != Integer.MAX_VALUE) s.freqCode = id.getUarfcn();
-                        if (id.getMcc() != Integer.MAX_VALUE) s.mcc = id.getMcc();
-                        if (id.getMnc() != Integer.MAX_VALUE) s.mnc = id.getMnc();
-                        s.score = MainActivity.nativeWcdmaScore(s.power, s.quality);
-                        s.grade = SignalInterpreter.wcdmaDbmGrade(s.power) + " / " + SignalInterpreter.wcdmaEcnoGrade(s.quality);
-                        break;
-                    } else if (ci instanceof CellInfoGsm && SignalInterpreter.isGsm(dataType)) {
-                        CellInfoGsm c = (CellInfoGsm) ci;
-                        CellSignalStrengthGsm sig = c.getCellSignalStrength();
-                        CellIdentityGsm id = c.getCellIdentity();
-                        s.power = sig.getDbm();
-                        s.quality = sig.getBitErrorRate();
-                        s.sinr = 0;
-                        if (s.level == 0) s.level = sig.getLevel();
-                        if (id.getCid() != Integer.MAX_VALUE) s.cellId = id.getCid();
-                        if (id.getBsic() != Integer.MAX_VALUE) s.pci = id.getBsic();
-                        if (id.getLac() != Integer.MAX_VALUE) s.areaCode = id.getLac();
-                        if (id.getArfcn() != Integer.MAX_VALUE) s.freqCode = id.getArfcn();
-                        if (id.getMcc() != Integer.MAX_VALUE) s.mcc = id.getMcc();
-                        if (id.getMnc() != Integer.MAX_VALUE) s.mnc = id.getMnc();
-                        s.score = 50;
-                        s.grade = SignalInterpreter.gsmDbmGrade(s.power);
-                        break;
+            if (infos != null) for (CellInfo ci : infos) {
+                if (ci instanceof CellInfoLte && SignalInterpreter.isLte(dataType)) {
+                    CellInfoLte c = (CellInfoLte) ci;
+                    CellSignalStrengthLte sig = c.getCellSignalStrength();
+                    CellIdentityLte id = c.getCellIdentity();
+                    s.power = sig.getRsrp();
+                    s.quality = sig.getRsrq();
+                    s.sinr = sig.getRssnr();
+                    if (s.level == 0) s.level = sig.getLevel();
+                    if (id.getCi() != Integer.MAX_VALUE) s.cellId = id.getCi();
+                    if (id.getPci() != Integer.MAX_VALUE) s.pci = id.getPci();
+                    if (id.getTac() != Integer.MAX_VALUE) s.areaCode = id.getTac();
+                    if (id.getEarfcn() != Integer.MAX_VALUE) s.freqCode = id.getEarfcn();
+                    if (id.getMcc() != Integer.MAX_VALUE) s.mcc = id.getMcc();
+                    if (id.getMnc() != Integer.MAX_VALUE) s.mnc = id.getMnc();
+                    s.score = MainActivity.nativeLteScore(s.power, s.quality, s.sinr);
+                    s.grade = SignalInterpreter.lteRsrpGrade(s.power) + " / " + SignalInterpreter.lteRsrqGrade(s.quality);
+                    break;
+                } else if (ci instanceof CellInfoWcdma && SignalInterpreter.isWcdma(dataType)) {
+                    CellInfoWcdma c = (CellInfoWcdma) ci;
+                    CellSignalStrengthWcdma sig = c.getCellSignalStrength();
+                    CellIdentityWcdma id = c.getCellIdentity();
+                    s.power = sig.getDbm();
+                    boolean hasEcno = Build.VERSION.SDK_INT >= 30;
+                    int ecno = 0;
+                    if (hasEcno) {
+                        try { ecno = sig.getEcNo(); } catch (Throwable t) { hasEcno = false; }
                     }
+                    s.quality = hasEcno ? ecno : -99;
+                    if (s.level == 0) s.level = sig.getLevel();
+                    if (id.getCid() != Integer.MAX_VALUE) s.cellId = id.getCid();
+                    if (id.getPsc() != Integer.MAX_VALUE) s.pci = id.getPsc();
+                    if (id.getLac() != Integer.MAX_VALUE) s.areaCode = id.getLac();
+                    if (id.getUarfcn() != Integer.MAX_VALUE) s.freqCode = id.getUarfcn();
+                    if (id.getMcc() != Integer.MAX_VALUE) s.mcc = id.getMcc();
+                    if (id.getMnc() != Integer.MAX_VALUE) s.mnc = id.getMnc();
+                    s.score = MainActivity.nativeWcdmaScore(s.power, ecno, hasEcno);
+                    s.grade = SignalInterpreter.wcdmaDbmGrade(s.power) +
+                              (hasEcno ? " / " + SignalInterpreter.wcdmaEcnoGrade(ecno) : " (EcNo N/A)");
+                    break;
+                } else if (ci instanceof CellInfoGsm && SignalInterpreter.isGsm(dataType)) {
+                    CellInfoGsm c = (CellInfoGsm) ci;
+                    CellSignalStrengthGsm sig = c.getCellSignalStrength();
+                    CellIdentityGsm id = c.getCellIdentity();
+                    s.power = sig.getDbm();
+                    s.quality = sig.getBitErrorRate();
+                    if (s.level == 0) s.level = sig.getLevel();
+                    if (id.getCid() != Integer.MAX_VALUE) s.cellId = id.getCid();
+                    if (Build.VERSION.SDK_INT >= 30) {
+                        try {
+                            if (id.getBsic() != Integer.MAX_VALUE) s.pci = id.getBsic();
+                        } catch (Throwable ignored) {}
+                    }
+                    if (id.getLac() != Integer.MAX_VALUE) s.areaCode = id.getLac();
+                    if (id.getArfcn() != Integer.MAX_VALUE) s.freqCode = id.getArfcn();
+                    if (id.getMcc() != Integer.MAX_VALUE) s.mcc = id.getMcc();
+                    if (id.getMnc() != Integer.MAX_VALUE) s.mnc = id.getMnc();
+                    s.score = 50;
+                    s.grade = SignalInterpreter.gsmDbmGrade(s.power);
+                    break;
                 }
             }
-        } catch (Exception e) { Log.w(TAG, "cells", e); }
+        } catch (Throwable t) { Log.w(TAG, "cells", t); }
 
         try {
             long now = System.currentTimeMillis();
@@ -154,7 +160,7 @@ public class SignalSamplingService extends Service {
             if (stats != null) for (UsageStats u : stats)
                 if (u.getLastTimeUsed() > latest) { latest = u.getLastTimeUsed(); fg = u.getPackageName(); }
             s.fgApp = fg;
-        } catch (Exception e) { Log.w(TAG, "usage", e); }
+        } catch (Throwable t) { Log.w(TAG, "usage", t); }
 
         try {
             if (wm != null && wm.isWifiEnabled()) {
@@ -163,7 +169,7 @@ public class SignalSamplingService extends Service {
                     s.wifiRssi = wi.getRssi(); s.wifiSsid = wi.getSSID();
                 }
             }
-        } catch (Exception e) { Log.w(TAG, "wifi", e); }
+        } catch (Throwable t) { Log.w(TAG, "wifi", t); }
 
         db.insert(s);
     }
