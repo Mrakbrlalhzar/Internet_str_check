@@ -46,34 +46,24 @@ jobs:
           set -e
           cat > settings.gradle << 'EOF'
           pluginManagement {
-              repositories {
-                  google()
-                  mavenCentral()
-                  gradlePluginPortal()
-              }
+              repositories { google(); mavenCentral(); gradlePluginPortal() }
           }
           dependencyResolutionManagement {
               repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-              repositories {
-                  google()
-                  mavenCentral()
-              }
+              repositories { google(); mavenCentral() }
           }
           rootProject.name = "SignalDeep"
           include ':app'
           EOF
           cat > build.gradle << 'EOF'
-          plugins {
-              id 'com.android.application' version '8.5.0' apply false
-          }
+          plugins { id 'com.android.application' version '8.5.0' apply false }
           EOF
 
       - name: Create project files
         run: |
           set -e
           mkdir -p app/src/main/java/com/example/signaldeep
-          mkdir -p app/src/main/res/layout
-          mkdir -p app/src/main/res/values
+          mkdir -p app/src/main/res/layout app/src/main/res/values
           mkdir -p app/src/main/cpp
 
           cat > .gitignore << 'EOF'
@@ -96,9 +86,7 @@ jobs:
           EOF
 
           cat > app/build.gradle << 'EOF'
-          plugins {
-              id 'com.android.application'
-          }
+          plugins { id 'com.android.application' }
           android {
               namespace 'com.example.signaldeep'
               compileSdk 34
@@ -109,26 +97,11 @@ jobs:
                   targetSdk 34
                   versionCode 1
                   versionName "1.0"
-                  externalNativeBuild {
-                      cmake {
-                          cppFlags "-std=c++17"
-                      }
-                  }
-                  ndk {
-                      abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64'
-                  }
+                  externalNativeBuild { cmake { cppFlags "-std=c++17" } }
+                  ndk { abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64' }
               }
-              externalNativeBuild {
-                  cmake {
-                      path "src/main/cpp/CMakeLists.txt"
-                      version "3.22.1"
-                  }
-              }
-              buildTypes {
-                  release {
-                      minifyEnabled false
-                  }
-              }
+              externalNativeBuild { cmake { path "src/main/cpp/CMakeLists.txt"; version "3.22.1" } }
+              buildTypes { release { minifyEnabled false } }
               compileOptions {
                   sourceCompatibility JavaVersion.VERSION_17
                   targetCompatibility JavaVersion.VERSION_17
@@ -141,9 +114,7 @@ jobs:
                   force 'org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.22'
               }
           }
-          dependencies {
-              implementation 'androidx.appcompat:appcompat:1.7.0'
-          }
+          dependencies { implementation 'androidx.appcompat:appcompat:1.7.0' }
           EOF
 
           cat > app/src/main/cpp/CMakeLists.txt << 'EOF'
@@ -159,17 +130,13 @@ jobs:
           #include <string>
           #include <cmath>
           #include <android/log.h>
-
           #define LOG_TAG "SignalNative"
           #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
-
           static double clamp01(double v) { return v < 0 ? 0 : (v > 1 ? 1 : v); }
-
           extern "C" JNIEXPORT jstring JNICALL
           Java_com_example_signaldeep_MainActivity_stringFromNative(JNIEnv* env, jobject) {
               return env->NewStringUTF("Native layer active (C++17)");
           }
-
           extern "C" JNIEXPORT jint JNICALL
           Java_com_example_signaldeep_MainActivity_nativeLteScore(
                   JNIEnv*, jobject, jint rsrp, jint rsrq, jint sinr) {
@@ -178,7 +145,6 @@ jobs:
               double qS = clamp01( sinr        / 20.0);
               return (jint)std::lround(100.0 * (0.4*qR + 0.3*qQ + 0.3*qS));
           }
-
           extern "C" JNIEXPORT jint JNICALL
           Java_com_example_signaldeep_MainActivity_nativeWcdmaScore(
                   JNIEnv*, jobject, jint dbm, jint ecno, jboolean hasEcno) {
@@ -200,9 +166,12 @@ jobs:
               <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
               <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
               <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+              <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+                  android:maxSdkVersion="28" />
               <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
                   tools:ignore="ProtectedPermissions" />
               <application
+                  android:name=".SignalDeepApp"
                   android:allowBackup="true"
                   android:label="@string/app_name"
                   android:theme="@style/Theme.AppCompat.Light.DarkActionBar">
@@ -227,7 +196,7 @@ jobs:
           cat > app/src/main/res/layout/activity_main.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-              android:orientation="vertical" android:padding="12dp"
+              android:orientation="vertical" android:padding="10dp"
               android:layout_width="match_parent" android:layout_height="match_parent">
               <Button android:id="@+id/btn_perms" android:text="Grant Permissions"
                   android:layout_width="match_parent" android:layout_height="wrap_content" />
@@ -239,8 +208,10 @@ jobs:
                   android:layout_width="match_parent" android:layout_height="wrap_content" />
               <Button android:id="@+id/btn_history" android:text="View History"
                   android:layout_width="match_parent" android:layout_height="wrap_content" />
+              <Button android:id="@+id/btn_loginfo" android:text="Where is log file?"
+                  android:layout_width="match_parent" android:layout_height="wrap_content" />
               <ScrollView android:layout_width="match_parent" android:layout_height="0dp"
-                  android:layout_weight="1" android:layout_marginTop="8dp">
+                  android:layout_weight="1" android:layout_marginTop="6dp">
                   <TextView android:id="@+id/tv_signal" android:textSize="13sp"
                       android:fontFamily="monospace"
                       android:layout_width="match_parent" android:layout_height="wrap_content" />
@@ -256,6 +227,135 @@ jobs:
               <ListView android:id="@+id/list" android:layout_width="match_parent"
                   android:layout_height="match_parent" />
           </LinearLayout>
+          EOF
+
+          cat > app/src/main/java/com/example/signaldeep/SignalLogger.java << 'EOF'
+          package com.example.signaldeep;
+
+          import android.Manifest;
+          import android.content.Context;
+          import android.content.pm.PackageManager;
+          import android.os.Build;
+          import android.os.Environment;
+          import android.util.Log;
+
+          import java.io.File;
+          import java.io.FileWriter;
+          import java.io.PrintWriter;
+          import java.io.StringWriter;
+          import java.text.SimpleDateFormat;
+          import java.util.Date;
+          import java.util.Locale;
+
+          public class SignalLogger {
+              private static final String TAG = "SignalLogger";
+              private static final String FILE_NAME = "signaldeep_log.txt";
+              private static final long MAX_SIZE = 2 * 1024 * 1024;
+              private static final Object LOCK = new Object();
+              private static final SimpleDateFormat TS =
+                  new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US);
+              private static Context appCtx;
+
+              public static void init(Context c) { appCtx = c.getApplicationContext(); }
+
+              public static File getFile() {
+                  if (appCtx == null) return null;
+                  // Preferred: public Downloads (API <= 28 with WRITE_EXTERNAL_STORAGE)
+                  if (Build.VERSION.SDK_INT <= 28) {
+                      try {
+                          if (appCtx.checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                                  == PackageManager.PERMISSION_GRANTED) {
+                              File dir = Environment.getExternalStoragePublicDirectory(
+                                  Environment.DIRECTORY_DOWNLOADS);
+                              if (dir != null && (dir.exists() || dir.mkdirs())) {
+                                  return new File(dir, FILE_NAME);
+                              }
+                          }
+                      } catch (Throwable t) { Log.w(TAG, "pub dir", t); }
+                  }
+                  // Fallback: app external dir (always writable without permission)
+                  File dir = appCtx.getExternalFilesDir(null);
+                  if (dir != null) return new File(dir, FILE_NAME);
+                  return new File(appCtx.getFilesDir(), FILE_NAME);
+              }
+
+              private static void write(String line) {
+                  if (appCtx == null) { Log.i(TAG, line); return; }
+                  synchronized (LOCK) {
+                      try {
+                          File f = getFile();
+                          if (f == null) return;
+                          if (f.length() > MAX_SIZE) {
+                              File bak = new File(f.getParentFile(), FILE_NAME + ".old");
+                              if (bak.exists()) bak.delete();
+                              f.renameTo(bak);
+                          }
+                          FileWriter fw = new FileWriter(f, true);
+                          fw.write(line);
+                          fw.write("\n");
+                          fw.close();
+                      } catch (Throwable t) { Log.e(TAG, "write fail", t); }
+                  }
+              }
+
+              public static void log(String tag, String msg) {
+                  String line = "[" + TS.format(new Date()) + "] [LOG] [" + tag + "] " + msg;
+                  Log.i(TAG, line);
+                  write(line);
+              }
+
+              public static void debug(String tag, String msg) {
+                  String line = "[" + TS.format(new Date()) + "] [DEBUG] [" + tag + "] " + msg;
+                  Log.d(TAG, line);
+                  write(line);
+              }
+
+              public static void crash(Throwable t) {
+                  StringWriter sw = new StringWriter();
+                  t.printStackTrace(new PrintWriter(sw));
+                  String line = "[" + TS.format(new Date()) + "] [CRASH] " + t.getClass().getName()
+                      + "\n" + sw.toString() + "\n---END-CRASH---\n";
+                  Log.e(TAG, line);
+                  write(line);
+              }
+
+              public static void clear() {
+                  synchronized (LOCK) {
+                      try {
+                          File f = getFile();
+                          if (f != null && f.exists()) {
+                              FileWriter fw = new FileWriter(f, false);
+                              fw.write("[" + TS.format(new Date()) + "] [LOG] [Logger] cleared\n");
+                              fw.close();
+                          }
+                      } catch (Throwable t) { Log.e(TAG, "clear", t); }
+                  }
+              }
+          }
+          EOF
+
+          cat > app/src/main/java/com/example/signaldeep/SignalDeepApp.java << 'EOF'
+          package com.example.signaldeep;
+
+          import android.app.Application;
+
+          public class SignalDeepApp extends Application {
+              @Override public void onCreate() {
+                  super.onCreate();
+                  SignalLogger.init(this);
+                  installCrashHandler();
+                  SignalLogger.log("App", "onCreate — SignalDeep started");
+              }
+              private void installCrashHandler() {
+                  final Thread.UncaughtExceptionHandler prev = Thread.getDefaultUncaughtExceptionHandler();
+                  Thread.setDefaultUncaughtExceptionHandler((t, e) -> {
+                      try {
+                          SignalLogger.crash(e);
+                      } catch (Throwable ignored) {}
+                      if (prev != null) prev.uncaughtException(t, e);
+                  });
+              }
+          }
           EOF
 
           cat > app/src/main/java/com/example/signaldeep/SignalInterpreter.java << 'EOF'
@@ -319,31 +419,22 @@ jobs:
                       default: return "[????]";
                   }
               }
-              public static String networkName(int type) {
-                  switch (type) {
-                      case 1: return "GPRS (2G)";
-                      case 2: return "EDGE (2G)";
-                      case 3: return "UMTS (3G)";
-                      case 4: return "CDMA (2G)";
-                      case 5: return "EVDO_0 (3G)";
-                      case 6: return "EVDO_A (3G)";
-                      case 7: return "1xRTT (2G)";
-                      case 8: return "HSDPA (3G)";
-                      case 9: return "HSUPA (3G)";
-                      case 10: return "HSPA (3G)";
-                      case 11: return "iDEN (2G)";
-                      case 12: return "EVDO_B (3G)";
-                      case 13: return "LTE (4G)";
-                      case 14: return "eHRPD (3G)";
-                      case 15: return "HSPAP (3G)";
-                      case 16: return "GSM (2G)";
-                      case 17: return "TD-SCDMA (3G)";
-                      case 18: return "IWLAN";
+              public static String networkName(int t) {
+                  switch (t) {
+                      case 1: return "GPRS (2G)"; case 2: return "EDGE (2G)";
+                      case 3: return "UMTS (3G)"; case 4: return "CDMA (2G)";
+                      case 5: return "EVDO_0 (3G)"; case 6: return "EVDO_A (3G)";
+                      case 7: return "1xRTT (2G)"; case 8: return "HSDPA (3G)";
+                      case 9: return "HSUPA (3G)"; case 10: return "HSPA (3G)";
+                      case 11: return "iDEN (2G)"; case 12: return "EVDO_B (3G)";
+                      case 13: return "LTE (4G)"; case 14: return "eHRPD (3G)";
+                      case 15: return "HSPAP (3G)"; case 16: return "GSM (2G)";
+                      case 17: return "TD-SCDMA (3G)"; case 18: return "IWLAN";
                       case 19: return "LTE-CA (4G+)";
-                      default: return "UNKNOWN (" + type + ")";
+                      default: return "UNKNOWN (" + t + ")";
                   }
               }
-              public static boolean isLte(int t)  { return t == 13 || t == 19; }
+              public static boolean isLte(int t)   { return t == 13 || t == 19; }
               public static boolean isWcdma(int t) {
                   return t == 3 || t == 5 || t == 6 || t == 8 || t == 9 ||
                          t == 10 || t == 12 || t == 14 || t == 15 || t == 17;
@@ -356,19 +447,11 @@ jobs:
 
           cat > app/src/main/java/com/example/signaldeep/SignalSample.java << 'EOF'
           package com.example.signaldeep;
-
           public class SignalSample {
               public long timestamp;
               public String networkType;
-              public int level;
-              public int power;
-              public int quality;
-              public int sinr;
-              public int cellId;
-              public int pci;
-              public int areaCode;
-              public int freqCode;
-              public int mcc, mnc;
+              public int level, power, quality, sinr;
+              public int cellId, pci, areaCode, freqCode, mcc, mnc;
               public int score;
               public String grade;
               public String fgApp;
@@ -393,7 +476,6 @@ jobs:
 
           public class DatabaseHelper extends SQLiteOpenHelper {
               public DatabaseHelper(Context c) { super(c, "signal.db", null, 2); }
-
               @Override public void onCreate(SQLiteDatabase db) {
                   db.execSQL("CREATE TABLE samples (" +
                       "id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER, net TEXT, " +
@@ -432,16 +514,14 @@ jobs:
                       sb.append(c.getString(1)).append("  ");
                       sb.append(SignalInterpreter.bars(c.getInt(2))).append("\n");
                       sb.append("   Power=").append(c.getInt(3)).append("dBm  ");
-                      sb.append("Quality=").append(c.getInt(4)).append("  ");
-                      sb.append("SINR=").append(c.getInt(5)).append("\n");
-                      sb.append("   Cell=").append(c.getInt(6)).append("  ");
-                      sb.append("PCI/PSC=").append(c.getInt(7)).append("  ");
-                      sb.append("TAC/LAC=").append(c.getInt(8)).append("  ");
-                      sb.append("Freq=").append(c.getInt(9)).append("\n");
-                      sb.append("   SCORE=").append(c.getInt(10)).append("/100  ");
-                      sb.append(c.getString(11)).append("\n");
+                      sb.append("Q=").append(c.getInt(4)).append("  SINR=").append(c.getInt(5)).append("\n");
+                      sb.append("   Cell=").append(c.getInt(6));
+                      sb.append(" PCI/PSC=").append(c.getInt(7));
+                      sb.append(" TAC/LAC=").append(c.getInt(8));
+                      sb.append(" Freq=").append(c.getInt(9)).append("\n");
+                      sb.append("   SCORE=").append(c.getInt(10)).append("/100  ").append(c.getString(11)).append("\n");
                       String fg = c.getString(12);
-                      if (fg != null && !fg.isEmpty()) sb.append("   FG App: ").append(fg).append("\n");
+                      if (fg != null && !fg.isEmpty()) sb.append("   FG: ").append(fg).append("\n");
                       int wr = c.getInt(13);
                       if (wr != 0) sb.append("   WiFi: ").append(wr).append("dBm\n");
                       out.add(sb.toString());
@@ -481,13 +561,11 @@ jobs:
           import android.telephony.CellSignalStrengthWcdma;
           import android.telephony.SignalStrength;
           import android.telephony.TelephonyManager;
-          import android.util.Log;
           import androidx.core.app.NotificationCompat;
           import java.util.List;
 
           public class SignalSamplingService extends Service {
               private static final String CH = "signal_ch";
-              private static final String TAG = "SignalSampling";
               private Handler h;
               private Runnable r;
               private TelephonyManager tm;
@@ -503,19 +581,21 @@ jobs:
                   db = new DatabaseHelper(this);
 
                   NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-                  NotificationChannel ch = new NotificationChannel(CH, "Signal Sampling", NotificationManager.IMPORTANCE_LOW);
-                  nm.createNotificationChannel(ch);
+                  nm.createNotificationChannel(new NotificationChannel(CH, "Sampling", NotificationManager.IMPORTANCE_LOW));
                   Notification n = new NotificationCompat.Builder(this, CH)
                       .setContentTitle("SignalDeep Sampling")
-                      .setContentText("Collecting signal data every 5s...")
+                      .setContentText("Collecting every 5s...")
                       .setSmallIcon(android.R.drawable.ic_menu_info_details)
                       .build();
                   startForeground(1, n);
+                  SignalLogger.log("Service", "onCreate — sampling started");
 
                   h = new Handler(Looper.getMainLooper());
                   r = new Runnable() {
                       @Override public void run() {
-                          try { sample(); } catch (Throwable t) { Log.w(TAG, "sample", t); }
+                          try { sample(); } catch (Throwable t) {
+                              SignalLogger.crash(t);
+                          }
                           h.postDelayed(this, 5000);
                       }
                   };
@@ -525,21 +605,15 @@ jobs:
               private void sample() {
                   SignalSample s = new SignalSample();
                   s.timestamp = System.currentTimeMillis();
-
                   int dataType = 0;
                   try {
                       if (checkSelfPermission(android.Manifest.permission.READ_PHONE_STATE)
-                              == PackageManager.PERMISSION_GRANTED) {
-                          dataType = tm.getDataNetworkType();
-                      }
-                  } catch (Throwable t) { Log.w(TAG, "type", t); }
-
+                              == PackageManager.PERMISSION_GRANTED) dataType = tm.getDataNetworkType();
+                  } catch (Throwable t) { SignalLogger.debug("Service","type:"+t); }
                   s.networkType = SignalInterpreter.networkName(dataType);
 
-                  try {
-                      SignalStrength ss = tm.getSignalStrength();
-                      if (ss != null) s.level = ss.getLevel();
-                  } catch (Throwable t) { Log.w(TAG, "ss", t); }
+                  try { SignalStrength ss = tm.getSignalStrength(); if (ss != null) s.level = ss.getLevel(); }
+                  catch (Throwable ignored) {}
 
                   try {
                       List<CellInfo> infos = tm.getAllCellInfo();
@@ -548,9 +622,7 @@ jobs:
                               CellInfoLte c = (CellInfoLte) ci;
                               CellSignalStrengthLte sig = c.getCellSignalStrength();
                               CellIdentityLte id = c.getCellIdentity();
-                              s.power = sig.getRsrp();
-                              s.quality = sig.getRsrq();
-                              s.sinr = sig.getRssnr();
+                              s.power = sig.getRsrp(); s.quality = sig.getRsrq(); s.sinr = sig.getRssnr();
                               if (s.level == 0) s.level = sig.getLevel();
                               if (id.getCi() != Integer.MAX_VALUE) s.cellId = id.getCi();
                               if (id.getPci() != Integer.MAX_VALUE) s.pci = id.getPci();
@@ -568,9 +640,7 @@ jobs:
                               s.power = sig.getDbm();
                               boolean hasEcno = Build.VERSION.SDK_INT >= 30;
                               int ecno = 0;
-                              if (hasEcno) {
-                                  try { ecno = sig.getEcNo(); } catch (Throwable t) { hasEcno = false; }
-                              }
+                              if (hasEcno) { try { ecno = sig.getEcNo(); } catch (Throwable t) { hasEcno = false; } }
                               s.quality = hasEcno ? ecno : -99;
                               if (s.level == 0) s.level = sig.getLevel();
                               if (id.getCid() != Integer.MAX_VALUE) s.cellId = id.getCid();
@@ -587,15 +657,9 @@ jobs:
                               CellInfoGsm c = (CellInfoGsm) ci;
                               CellSignalStrengthGsm sig = c.getCellSignalStrength();
                               CellIdentityGsm id = c.getCellIdentity();
-                              s.power = sig.getDbm();
-                              s.quality = sig.getBitErrorRate();
+                              s.power = sig.getDbm(); s.quality = sig.getBitErrorRate();
                               if (s.level == 0) s.level = sig.getLevel();
                               if (id.getCid() != Integer.MAX_VALUE) s.cellId = id.getCid();
-                              if (Build.VERSION.SDK_INT >= 30) {
-                                  try {
-                                      if (id.getBsic() != Integer.MAX_VALUE) s.pci = id.getBsic();
-                                  } catch (Throwable ignored) {}
-                              }
                               if (id.getLac() != Integer.MAX_VALUE) s.areaCode = id.getLac();
                               if (id.getArfcn() != Integer.MAX_VALUE) s.freqCode = id.getArfcn();
                               if (id.getMcc() != Integer.MAX_VALUE) s.mcc = id.getMcc();
@@ -605,7 +669,7 @@ jobs:
                               break;
                           }
                       }
-                  } catch (Throwable t) { Log.w(TAG, "cells", t); }
+                  } catch (Throwable t) { SignalLogger.debug("Service","cells:"+t); }
 
                   try {
                       long now = System.currentTimeMillis();
@@ -614,7 +678,7 @@ jobs:
                       if (stats != null) for (UsageStats u : stats)
                           if (u.getLastTimeUsed() > latest) { latest = u.getLastTimeUsed(); fg = u.getPackageName(); }
                       s.fgApp = fg;
-                  } catch (Throwable t) { Log.w(TAG, "usage", t); }
+                  } catch (Throwable ignored) {}
 
                   try {
                       if (wm != null && wm.isWifiEnabled()) {
@@ -623,13 +687,23 @@ jobs:
                               s.wifiRssi = wi.getRssi(); s.wifiSsid = wi.getSSID();
                           }
                       }
-                  } catch (Throwable t) { Log.w(TAG, "wifi", t); }
+                  } catch (Throwable ignored) {}
 
                   db.insert(s);
+                  SignalLogger.debug("Sample",
+                      "net=" + s.networkType + " lvl=" + s.level +
+                      " power=" + s.power + " q=" + s.quality + " sinr=" + s.sinr +
+                      " cid=" + s.cellId + " pci=" + s.pci + " area=" + s.areaCode +
+                      " freq=" + s.freqCode + " score=" + s.score +
+                      " fg=" + s.fgApp + " wifi=" + s.wifiRssi);
               }
 
               @Override public int onStartCommand(Intent i, int f, int st) { return START_STICKY; }
-              @Override public void onDestroy() { if (h != null && r != null) h.removeCallbacks(r); super.onDestroy(); }
+              @Override public void onDestroy() {
+                  SignalLogger.log("Service","onDestroy — sampling stopped");
+                  if (h != null && r != null) h.removeCallbacks(r);
+                  super.onDestroy();
+              }
               @Override public IBinder onBind(Intent i) { return null; }
           }
           EOF
@@ -669,12 +743,8 @@ jobs:
           public class MainActivity extends AppCompatActivity {
               public static String NATIVE_STATUS = "not loaded";
               static {
-                  try {
-                      System.loadLibrary("native-lib");
-                      NATIVE_STATUS = "OK";
-                  } catch (Throwable t) {
-                      NATIVE_STATUS = "FAILED: " + t.getClass().getSimpleName() + ": " + t.getMessage();
-                  }
+                  try { System.loadLibrary("native-lib"); NATIVE_STATUS = "OK"; }
+                  catch (Throwable t) { NATIVE_STATUS = "FAILED: " + t; }
               }
               public native String stringFromNative();
               public static native int nativeLteScore(int rsrp, int rsrq, int sinr);
@@ -692,26 +762,39 @@ jobs:
                   setContentView(R.layout.activity_main);
                   tvSignal = findViewById(R.id.tv_signal);
                   tm = (TelephonyManager) getSystemService(TELEPHONY_SERVICE);
+                  SignalLogger.log("Main","onCreate");
 
-                  findViewById(R.id.btn_perms).setOnClickListener(v ->
-                      ActivityCompat.requestPermissions(this, new String[]{
-                          Manifest.permission.ACCESS_FINE_LOCATION,
-                          Manifest.permission.READ_PHONE_STATE,
-                          Manifest.permission.ACCESS_WIFI_STATE,
-                          Manifest.permission.CHANGE_WIFI_STATE
-                      }, 100));
+                  findViewById(R.id.btn_perms).setOnClickListener(v -> {
+                      String[] perms;
+                      if (Build.VERSION.SDK_INT <= 28) {
+                          perms = new String[]{
+                              Manifest.permission.ACCESS_FINE_LOCATION,
+                              Manifest.permission.READ_PHONE_STATE,
+                              Manifest.permission.ACCESS_WIFI_STATE,
+                              Manifest.permission.CHANGE_WIFI_STATE,
+                              Manifest.permission.WRITE_EXTERNAL_STORAGE
+                          };
+                      } else {
+                          perms = new String[]{
+                              Manifest.permission.ACCESS_FINE_LOCATION,
+                              Manifest.permission.READ_PHONE_STATE,
+                              Manifest.permission.ACCESS_WIFI_STATE,
+                              Manifest.permission.CHANGE_WIFI_STATE
+                          };
+                      }
+                      ActivityCompat.requestPermissions(this, perms, 100);
+                  });
 
-                  findViewById(R.id.btn_usage).setOnClickListener(v ->
-                      startActivity(new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)));
+                  findViewById(R.id.btn_usage).setOnClickListener(v -> {
+                      startActivity(new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS));
+                      SignalLogger.log("Main","opened Usage Access settings");
+                  });
 
                   findViewById(R.id.btn_start).setOnClickListener(v -> {
                       try {
-                          ContextCompat.startForegroundService(this,
-                              new Intent(this, SignalSamplingService.class));
+                          ContextCompat.startForegroundService(this, new Intent(this, SignalSamplingService.class));
                           Toast.makeText(this, "Sampling started", Toast.LENGTH_SHORT).show();
-                      } catch (Throwable t) {
-                          Toast.makeText(this, "Err: " + t, Toast.LENGTH_LONG).show();
-                      }
+                      } catch (Throwable t) { SignalLogger.crash(t); }
                   });
 
                   findViewById(R.id.btn_stop).setOnClickListener(v -> {
@@ -721,6 +804,17 @@ jobs:
 
                   findViewById(R.id.btn_history).setOnClickListener(v ->
                       startActivity(new Intent(this, CorrelationActivity.class)));
+
+                  findViewById(R.id.btn_loginfo).setOnClickListener(v -> {
+                      java.io.File f = SignalLogger.getFile();
+                      String path = (f == null) ? "unavailable" : f.getAbsolutePath();
+                      new androidx.appcompat.app.AlertDialog.Builder(this)
+                          .setTitle("Log file")
+                          .setMessage(path + "\n\nTap OPEN to view in file manager.")
+                          .setPositiveButton("OK", null)
+                          .show();
+                      SignalLogger.log("Main","log path: " + path);
+                  });
               }
 
               @Override protected void onResume() { super.onResume(); handler.post(poller); }
@@ -733,6 +827,7 @@ jobs:
                       sb.append("C++: ").append(stringFromNative()).append("\n\n");
                       doRefresh(sb);
                   } catch (Throwable t) {
+                      SignalLogger.crash(t);
                       StringWriter sw = new StringWriter();
                       t.printStackTrace(new PrintWriter(sw));
                       sb.append("\n=== ERROR in refresh ===\n").append(sw.toString());
@@ -744,13 +839,8 @@ jobs:
                   int dataType = 0;
                   try {
                       if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_STATE)
-                              == PackageManager.PERMISSION_GRANTED) {
-                          dataType = tm.getDataNetworkType();
-                      } else {
-                          sb.append("Grant READ_PHONE_STATE to detect network type.\n");
-                      }
-                  } catch (Throwable t) { sb.append("Type error: ").append(t).append("\n"); }
-
+                              == PackageManager.PERMISSION_GRANTED) dataType = tm.getDataNetworkType();
+                  } catch (Throwable t) { sb.append("type err: ").append(t).append("\n"); }
                   sb.append("Active data: ").append(SignalInterpreter.networkName(dataType)).append("\n");
 
                   boolean hasLoc = ContextCompat.checkSelfPermission(this,
@@ -759,20 +849,12 @@ jobs:
 
                   SignalStrength ss = null;
                   try { ss = tm.getSignalStrength(); } catch (Throwable ignored) {}
-                  if (ss != null) {
-                      int lvl = ss.getLevel();
-                      sb.append("System level: ").append(lvl).append("/4 ")
-                        .append(SignalInterpreter.bars(lvl)).append("\n");
-                  }
+                  if (ss != null) sb.append("System level: ").append(ss.getLevel()).append("/4 ")
+                      .append(SignalInterpreter.bars(ss.getLevel())).append("\n");
 
                   List<CellInfo> infos = null;
-                  try { infos = tm.getAllCellInfo(); } catch (Throwable t) {
-                      sb.append("getAllCellInfo error: ").append(t).append("\n");
-                  }
-                  if (infos == null || infos.isEmpty()) {
-                      sb.append("No cell info available (Samsung often hides this).\n");
-                      return;
-                  }
+                  try { infos = tm.getAllCellInfo(); } catch (Throwable t) { sb.append("getAllCellInfo err: ").append(t).append("\n"); }
+                  if (infos == null || infos.isEmpty()) { sb.append("No cell info (Samsung often hides).\n"); return; }
 
                   for (CellInfo ci : infos) {
                       try {
@@ -784,12 +866,10 @@ jobs:
                               int score = nativeLteScore(rsrp, rsrq, sinr);
                               sb.append("=== 4G LTE ===\n");
                               sb.append("RSRP: ").append(rsrp).append(" dBm → ").append(SignalInterpreter.lteRsrpGrade(rsrp)).append("\n");
-                              sb.append("RSRQ: ").append(rsrq).append(" dB  → ").append(SignalInterpreter.lteRsrqGrade(rsrq)).append("\n");
-                              sb.append("SINR: ").append(sinr).append("     → ").append(SignalInterpreter.lteSinrGrade(sinr)).append("\n");
-                              sb.append("RSSI: ").append(sig.getRssi()).append(" dBm\n");
-                              sb.append("CQI:  ").append(sig.getCqi()).append("\n");
-                              sb.append("Level: ").append(sig.getLevel()).append("/4 ")
-                                .append(SignalInterpreter.bars(sig.getLevel())).append("\n");
+                              sb.append("RSRQ: ").append(rsrq).append(" dB → ").append(SignalInterpreter.lteRsrqGrade(rsrq)).append("\n");
+                              sb.append("SINR: ").append(sinr).append(" → ").append(SignalInterpreter.lteSinrGrade(sinr)).append("\n");
+                              sb.append("RSSI: ").append(sig.getRssi()).append(" dBm  CQI: ").append(sig.getCqi()).append("\n");
+                              sb.append("Level: ").append(sig.getLevel()).append("/4 ").append(SignalInterpreter.bars(sig.getLevel())).append("\n");
                               if (id.getCi() != Integer.MAX_VALUE) sb.append("CellID: ").append(id.getCi()).append("\n");
                               if (id.getPci() != Integer.MAX_VALUE) sb.append("PCI: ").append(id.getPci()).append("\n");
                               if (id.getTac() != Integer.MAX_VALUE) sb.append("TAC: ").append(id.getTac()).append("\n");
@@ -803,16 +883,13 @@ jobs:
                               int dbm = sig.getDbm();
                               boolean hasEcno = Build.VERSION.SDK_INT >= 30;
                               int ecno = 0;
-                              if (hasEcno) {
-                                  try { ecno = sig.getEcNo(); } catch (Throwable t) { hasEcno = false; }
-                              }
+                              if (hasEcno) { try { ecno = sig.getEcNo(); } catch (Throwable t) { hasEcno = false; } }
                               int score = nativeWcdmaScore(dbm, ecno, hasEcno);
                               sb.append("=== 3G WCDMA ===\n");
                               sb.append("RSCP/Dbm: ").append(dbm).append(" dBm → ").append(SignalInterpreter.wcdmaDbmGrade(dbm)).append("\n");
-                              if (hasEcno) sb.append("Ec/Io:    ").append(ecno).append(" dB  → ").append(SignalInterpreter.wcdmaEcnoGrade(ecno)).append("\n");
-                              else sb.append("Ec/Io:    N/A (Android 8 — needs API 30+)\n");
-                              sb.append("Level: ").append(sig.getLevel()).append("/4 ")
-                                .append(SignalInterpreter.bars(sig.getLevel())).append("\n");
+                              if (hasEcno) sb.append("Ec/Io: ").append(ecno).append(" dB → ").append(SignalInterpreter.wcdmaEcnoGrade(ecno)).append("\n");
+                              else sb.append("Ec/Io: N/A (Android 8 — needs API 30+)\n");
+                              sb.append("Level: ").append(sig.getLevel()).append("/4 ").append(SignalInterpreter.bars(sig.getLevel())).append("\n");
                               if (id.getCid() != Integer.MAX_VALUE) sb.append("CellID: ").append(id.getCid()).append("\n");
                               if (id.getPsc() != Integer.MAX_VALUE) sb.append("PSC: ").append(id.getPsc()).append("\n");
                               if (id.getLac() != Integer.MAX_VALUE) sb.append("LAC: ").append(id.getLac()).append("\n");
@@ -826,14 +903,14 @@ jobs:
                               int dbm = sig.getDbm();
                               sb.append("=== 2G GSM ===\n");
                               sb.append("RxLev: ").append(dbm).append(" dBm → ").append(SignalInterpreter.gsmDbmGrade(dbm)).append("\n");
-                              sb.append("BER:   ").append(sig.getBitErrorRate()).append("\n");
-                              sb.append("Level: ").append(sig.getLevel()).append("/4 ")
-                                .append(SignalInterpreter.bars(sig.getLevel())).append("\n");
+                              sb.append("BER: ").append(sig.getBitErrorRate()).append("\n");
+                              sb.append("Level: ").append(sig.getLevel()).append("/4 ").append(SignalInterpreter.bars(sig.getLevel())).append("\n");
                               if (id.getCid() != Integer.MAX_VALUE) sb.append("CellID: ").append(id.getCid()).append("\n");
                               if (id.getLac() != Integer.MAX_VALUE) sb.append("LAC: ").append(id.getLac()).append("\n\n");
                           }
                       } catch (Throwable t) {
-                          sb.append("Cell parse error: ").append(t).append("\n\n");
+                          SignalLogger.crash(t);
+                          sb.append("Cell parse err: ").append(t).append("\n\n");
                       }
                   }
               }
@@ -870,6 +947,8 @@ jobs:
             app/src/main/res/values/strings.xml \
             app/src/main/res/layout/activity_main.xml \
             app/src/main/res/layout/activity_correlation.xml \
+            app/src/main/java/com/example/signaldeep/SignalLogger.java \
+            app/src/main/java/com/example/signaldeep/SignalDeepApp.java \
             app/src/main/java/com/example/signaldeep/SignalInterpreter.java \
             app/src/main/java/com/example/signaldeep/SignalSample.java \
             app/src/main/java/com/example/signaldeep/DatabaseHelper.java \
@@ -899,7 +978,7 @@ jobs:
           git config --local user.name "SignalDeep Bot"
           git add -A
           if git diff --cached --quiet; then
-            echo "No changes to commit"
+            echo "No changes"
           else
             git commit -m "chore: auto-generate project files [skip ci]"
             git push
