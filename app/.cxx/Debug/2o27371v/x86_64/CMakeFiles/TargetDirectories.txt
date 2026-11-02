@@ -1,0 +1,3 @@
+/home/runner/work/Internet_str_check/Internet_str_check/app/.cxx/Debug/2o27371v/x86_64/CMakeFiles/native-lib.dir
+/home/runner/work/Internet_str_check/Internet_str_check/app/.cxx/Debug/2o27371v/x86_64/CMakeFiles/edit_cache.dir
+/home/runner/work/Internet_str_check/Internet_str_check/app/.cxx/Debug/2o27371v/x86_64/CMakeFiles/rebuild_cache.dir

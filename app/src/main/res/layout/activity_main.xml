@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical" android:padding="12dp"
+    android:layout_width="match_parent" android:layout_height="match_parent">
+    <Button android:id="@+id/btn_perms" android:text="Grant Permissions"
+        android:layout_width="match_parent" android:layout_height="wrap_content" />
+    <Button android:id="@+id/btn_usage" android:text="Grant Usage Access"
+        android:layout_width="match_parent" android:layout_height="wrap_content" />
+    <Button android:id="@+id/btn_start" android:text="Start Sampling"
+        android:layout_width="match_parent" android:layout_height="wrap_content" />
+    <Button android:id="@+id/btn_stop" android:text="Stop Sampling"
+        android:layout_width="match_parent" android:layout_height="wrap_content" />
+    <Button android:id="@+id/btn_history" android:text="View History"
+        android:layout_width="match_parent" android:layout_height="wrap_content" />
+    <ScrollView android:layout_width="match_parent" android:layout_height="0dp"
+        android:layout_weight="1" android:layout_marginTop="8dp">
+        <TextView android:id="@+id/tv_signal" android:textSize="13sp"
+            android:fontFamily="monospace"
+            android:layout_width="match_parent" android:layout_height="wrap_content" />
+    </ScrollView>
+</LinearLayout>
