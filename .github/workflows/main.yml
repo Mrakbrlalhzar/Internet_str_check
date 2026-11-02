@@ -17,22 +17,18 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-
       - uses: android-actions/setup-android@v4
         with:
           packages: 'platform-tools'
           accept-android-sdk-licenses: true
-
       - name: Install SDK packages
         run: |
           sdkmanager --install "platforms;android-34" "build-tools;34.0.0" "ndk;26.1.10909125" "cmake;3.22.1"
           yes | sdkmanager --licenses || true
-
       - name: Install Gradle 8.7
         run: |
           cd /tmp
@@ -45,9 +41,7 @@ jobs:
         run: |
           set -e
           cat > settings.gradle << 'EOF'
-          pluginManagement {
-              repositories { google(); mavenCentral(); gradlePluginPortal() }
-          }
+          pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
           dependencyResolutionManagement {
               repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
               repositories { google(); mavenCentral() }
@@ -95,8 +89,8 @@ jobs:
                   applicationId "com.example.signaldeep"
                   minSdk 26
                   targetSdk 34
-                  versionCode 1
-                  versionName "1.0"
+                  versionCode 2
+                  versionName "1.1"
                   externalNativeBuild { cmake { cppFlags "-std=c++17" } }
                   ndk { abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64' }
               }
@@ -188,9 +182,7 @@ jobs:
           EOF
 
           cat > app/src/main/res/values/strings.xml << 'EOF'
-          <resources>
-              <string name="app_name">SignalDeep</string>
-          </resources>
+          <resources><string name="app_name">SignalDeep</string></resources>
           EOF
 
           cat > app/src/main/res/layout/activity_main.xml << 'EOF'
@@ -238,7 +230,6 @@ jobs:
           import android.os.Build;
           import android.os.Environment;
           import android.util.Log;
-
           import java.io.File;
           import java.io.FileWriter;
           import java.io.PrintWriter;
@@ -255,25 +246,21 @@ jobs:
               private static final SimpleDateFormat TS =
                   new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US);
               private static Context appCtx;
-
               public static void init(Context c) { appCtx = c.getApplicationContext(); }
 
               public static File getFile() {
                   if (appCtx == null) return null;
-                  // Preferred: public Downloads (API <= 28 with WRITE_EXTERNAL_STORAGE)
                   if (Build.VERSION.SDK_INT <= 28) {
                       try {
                           if (appCtx.checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)
                                   == PackageManager.PERMISSION_GRANTED) {
                               File dir = Environment.getExternalStoragePublicDirectory(
                                   Environment.DIRECTORY_DOWNLOADS);
-                              if (dir != null && (dir.exists() || dir.mkdirs())) {
+                              if (dir != null && (dir.exists() || dir.mkdirs()))
                                   return new File(dir, FILE_NAME);
-                              }
                           }
                       } catch (Throwable t) { Log.w(TAG, "pub dir", t); }
                   }
-                  // Fallback: app external dir (always writable without permission)
                   File dir = appCtx.getExternalFilesDir(null);
                   if (dir != null) return new File(dir, FILE_NAME);
                   return new File(appCtx.getFilesDir(), FILE_NAME);
@@ -291,45 +278,25 @@ jobs:
                               f.renameTo(bak);
                           }
                           FileWriter fw = new FileWriter(f, true);
-                          fw.write(line);
-                          fw.write("\n");
-                          fw.close();
+                          fw.write(line); fw.write("\n"); fw.close();
                       } catch (Throwable t) { Log.e(TAG, "write fail", t); }
                   }
               }
 
               public static void log(String tag, String msg) {
                   String line = "[" + TS.format(new Date()) + "] [LOG] [" + tag + "] " + msg;
-                  Log.i(TAG, line);
-                  write(line);
+                  Log.i(TAG, line); write(line);
               }
-
               public static void debug(String tag, String msg) {
                   String line = "[" + TS.format(new Date()) + "] [DEBUG] [" + tag + "] " + msg;
-                  Log.d(TAG, line);
-                  write(line);
+                  Log.d(TAG, line); write(line);
               }
-
               public static void crash(Throwable t) {
                   StringWriter sw = new StringWriter();
                   t.printStackTrace(new PrintWriter(sw));
                   String line = "[" + TS.format(new Date()) + "] [CRASH] " + t.getClass().getName()
                       + "\n" + sw.toString() + "\n---END-CRASH---\n";
-                  Log.e(TAG, line);
-                  write(line);
-              }
-
-              public static void clear() {
-                  synchronized (LOCK) {
-                      try {
-                          File f = getFile();
-                          if (f != null && f.exists()) {
-                              FileWriter fw = new FileWriter(f, false);
-                              fw.write("[" + TS.format(new Date()) + "] [LOG] [Logger] cleared\n");
-                              fw.close();
-                          }
-                      } catch (Throwable t) { Log.e(TAG, "clear", t); }
-                  }
+                  Log.e(TAG, line); write(line);
               }
           }
           EOF
@@ -343,17 +310,12 @@ jobs:
               @Override public void onCreate() {
                   super.onCreate();
                   SignalLogger.init(this);
-                  installCrashHandler();
-                  SignalLogger.log("App", "onCreate — SignalDeep started");
-              }
-              private void installCrashHandler() {
                   final Thread.UncaughtExceptionHandler prev = Thread.getDefaultUncaughtExceptionHandler();
                   Thread.setDefaultUncaughtExceptionHandler((t, e) -> {
-                      try {
-                          SignalLogger.crash(e);
-                      } catch (Throwable ignored) {}
+                      try { SignalLogger.crash(e); } catch (Throwable ignored) {}
                       if (prev != null) prev.uncaughtException(t, e);
                   });
+                  SignalLogger.log("App", "onCreate — SignalDeep started");
               }
           }
           EOF
@@ -379,8 +341,9 @@ jobs:
               public static String lteSinrGrade(int v) {
                   if (v >= 20) return "EXCELLENT";
                   if (v >= 13) return "GOOD";
-                  if (v >= 0)  return "FAIR";
-                  return "POOR";
+                  if (v >= 5)  return "FAIR";
+                  if (v >= 0)  return "POOR";
+                  return "VERY POOR (no data)";
               }
               public static String wcdmaDbmGrade(int v) {
                   if (v >= -70)  return "EXCELLENT (4/4)";
@@ -409,8 +372,8 @@ jobs:
                   if (s >= 20) return "POOR";
                   return "VERY POOR";
               }
-              public static String bars(int level) {
-                  switch (level) {
+              public static String bars(int lvl) {
+                  switch (lvl) {
                       case 0: return "[    ]";
                       case 1: return "[|   ]";
                       case 2: return "[||  ]";
@@ -434,7 +397,7 @@ jobs:
                       default: return "UNKNOWN (" + t + ")";
                   }
               }
-              public static boolean isLte(int t)   { return t == 13 || t == 19; }
+              public static boolean isLte(int t) { return t == 13 || t == 19; }
               public static boolean isWcdma(int t) {
                   return t == 3 || t == 5 || t == 6 || t == 8 || t == 9 ||
                          t == 10 || t == 12 || t == 14 || t == 15 || t == 17;
@@ -523,7 +486,7 @@ jobs:
                       String fg = c.getString(12);
                       if (fg != null && !fg.isEmpty()) sb.append("   FG: ").append(fg).append("\n");
                       int wr = c.getInt(13);
-                      if (wr != 0) sb.append("   WiFi: ").append(wr).append("dBm\n");
+                      if (wr != 0 && wr > -127 && wr < 0) sb.append("   WiFi: ").append(wr).append("dBm\n");
                       out.add(sb.toString());
                   }
                   c.close(); db.close(); return out;
@@ -579,23 +542,18 @@ jobs:
                   wm = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
                   usm = (UsageStatsManager) getSystemService(Context.USAGE_STATS_SERVICE);
                   db = new DatabaseHelper(this);
-
                   NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
                   nm.createNotificationChannel(new NotificationChannel(CH, "Sampling", NotificationManager.IMPORTANCE_LOW));
                   Notification n = new NotificationCompat.Builder(this, CH)
                       .setContentTitle("SignalDeep Sampling")
                       .setContentText("Collecting every 5s...")
-                      .setSmallIcon(android.R.drawable.ic_menu_info_details)
-                      .build();
+                      .setSmallIcon(android.R.drawable.ic_menu_info_details).build();
                   startForeground(1, n);
                   SignalLogger.log("Service", "onCreate — sampling started");
-
                   h = new Handler(Looper.getMainLooper());
                   r = new Runnable() {
                       @Override public void run() {
-                          try { sample(); } catch (Throwable t) {
-                              SignalLogger.crash(t);
-                          }
+                          try { sample(); } catch (Throwable t) { SignalLogger.crash(t); }
                           h.postDelayed(this, 5000);
                       }
                   };
@@ -622,7 +580,9 @@ jobs:
                               CellInfoLte c = (CellInfoLte) ci;
                               CellSignalStrengthLte sig = c.getCellSignalStrength();
                               CellIdentityLte id = c.getCellIdentity();
-                              s.power = sig.getRsrp(); s.quality = sig.getRsrq(); s.sinr = sig.getRssnr();
+                              s.power = sig.getRsrp();
+                              s.quality = sig.getRsrq();
+                              s.sinr = sig.getRssnr();
                               if (s.level == 0) s.level = sig.getLevel();
                               if (id.getCi() != Integer.MAX_VALUE) s.cellId = id.getCi();
                               if (id.getPci() != Integer.MAX_VALUE) s.pci = id.getPci();
@@ -657,7 +617,8 @@ jobs:
                               CellInfoGsm c = (CellInfoGsm) ci;
                               CellSignalStrengthGsm sig = c.getCellSignalStrength();
                               CellIdentityGsm id = c.getCellIdentity();
-                              s.power = sig.getDbm(); s.quality = sig.getBitErrorRate();
+                              s.power = sig.getDbm();
+                              s.quality = sig.getBitErrorRate();
                               if (s.level == 0) s.level = sig.getLevel();
                               if (id.getCid() != Integer.MAX_VALUE) s.cellId = id.getCid();
                               if (id.getLac() != Integer.MAX_VALUE) s.areaCode = id.getLac();
@@ -683,8 +644,11 @@ jobs:
                   try {
                       if (wm != null && wm.isWifiEnabled()) {
                           WifiInfo wi = wm.getConnectionInfo();
-                          if (wi != null && wi.getRssi() < 0) {
-                              s.wifiRssi = wi.getRssi(); s.wifiSsid = wi.getSSID();
+                          if (wi != null) {
+                              int wr = wi.getRssi();
+                              if (wr > -127 && wr < 0) {
+                                  s.wifiRssi = wr; s.wifiSsid = wi.getSSID();
+                              }
                           }
                       }
                   } catch (Throwable ignored) {}
@@ -784,35 +748,29 @@ jobs:
                       }
                       ActivityCompat.requestPermissions(this, perms, 100);
                   });
-
                   findViewById(R.id.btn_usage).setOnClickListener(v -> {
                       startActivity(new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS));
                       SignalLogger.log("Main","opened Usage Access settings");
                   });
-
                   findViewById(R.id.btn_start).setOnClickListener(v -> {
                       try {
                           ContextCompat.startForegroundService(this, new Intent(this, SignalSamplingService.class));
                           Toast.makeText(this, "Sampling started", Toast.LENGTH_SHORT).show();
                       } catch (Throwable t) { SignalLogger.crash(t); }
                   });
-
                   findViewById(R.id.btn_stop).setOnClickListener(v -> {
                       stopService(new Intent(this, SignalSamplingService.class));
                       Toast.makeText(this, "Stopped", Toast.LENGTH_SHORT).show();
                   });
-
                   findViewById(R.id.btn_history).setOnClickListener(v ->
                       startActivity(new Intent(this, CorrelationActivity.class)));
-
                   findViewById(R.id.btn_loginfo).setOnClickListener(v -> {
                       java.io.File f = SignalLogger.getFile();
                       String path = (f == null) ? "unavailable" : f.getAbsolutePath();
                       new androidx.appcompat.app.AlertDialog.Builder(this)
                           .setTitle("Log file")
-                          .setMessage(path + "\n\nTap OPEN to view in file manager.")
-                          .setPositiveButton("OK", null)
-                          .show();
+                          .setMessage(path)
+                          .setPositiveButton("OK", null).show();
                       SignalLogger.log("Main","log path: " + path);
                   });
               }
@@ -853,8 +811,11 @@ jobs:
                       .append(SignalInterpreter.bars(ss.getLevel())).append("\n");
 
                   List<CellInfo> infos = null;
-                  try { infos = tm.getAllCellInfo(); } catch (Throwable t) { sb.append("getAllCellInfo err: ").append(t).append("\n"); }
-                  if (infos == null || infos.isEmpty()) { sb.append("No cell info (Samsung often hides).\n"); return; }
+                  try { infos = tm.getAllCellInfo(); }
+                  catch (Throwable t) { sb.append("getAllCellInfo err: ").append(t).append("\n"); }
+                  if (infos == null || infos.isEmpty()) {
+                      sb.append("No cell info (Samsung often hides).\n"); return;
+                  }
 
                   for (CellInfo ci : infos) {
                       try {
@@ -865,17 +826,34 @@ jobs:
                               int rsrp = sig.getRsrp(), rsrq = sig.getRsrq(), sinr = sig.getRssnr();
                               int score = nativeLteScore(rsrp, rsrq, sinr);
                               sb.append("=== 4G LTE ===\n");
-                              sb.append("RSRP: ").append(rsrp).append(" dBm → ").append(SignalInterpreter.lteRsrpGrade(rsrp)).append("\n");
-                              sb.append("RSRQ: ").append(rsrq).append(" dB → ").append(SignalInterpreter.lteRsrqGrade(rsrq)).append("\n");
-                              sb.append("SINR: ").append(sinr).append(" → ").append(SignalInterpreter.lteSinrGrade(sinr)).append("\n");
-                              sb.append("RSSI: ").append(sig.getRssi()).append(" dBm  CQI: ").append(sig.getCqi()).append("\n");
-                              sb.append("Level: ").append(sig.getLevel()).append("/4 ").append(SignalInterpreter.bars(sig.getLevel())).append("\n");
+                              sb.append("RSRP: ").append(rsrp).append(" dBm → ")
+                                .append(SignalInterpreter.lteRsrpGrade(rsrp)).append("\n");
+                              sb.append("RSRQ: ").append(rsrq).append(" dB → ")
+                                .append(SignalInterpreter.lteRsrqGrade(rsrq)).append("\n");
+                              sb.append("SINR: ").append(sinr).append(" → ")
+                                .append(SignalInterpreter.lteSinrGrade(sinr)).append("\n");
+                              // RSSI is API 30+
+                              if (Build.VERSION.SDK_INT >= 30) {
+                                  try {
+                                      int rssi = sig.getRssi();
+                                      if (rssi > -128) sb.append("RSSI: ").append(rssi).append(" dBm\n");
+                                  } catch (Throwable ignored) {}
+                              }
+                              // CQI is API 26+
+                              try {
+                                  int cqi = sig.getCqi();
+                                  if (cqi >= 0) sb.append("CQI:  ").append(cqi).append("\n");
+                              } catch (Throwable ignored) {}
+                              sb.append("Level: ").append(sig.getLevel()).append("/4 ")
+                                .append(SignalInterpreter.bars(sig.getLevel())).append("\n");
                               if (id.getCi() != Integer.MAX_VALUE) sb.append("CellID: ").append(id.getCi()).append("\n");
                               if (id.getPci() != Integer.MAX_VALUE) sb.append("PCI: ").append(id.getPci()).append("\n");
                               if (id.getTac() != Integer.MAX_VALUE) sb.append("TAC: ").append(id.getTac()).append("\n");
                               if (id.getEarfcn() != Integer.MAX_VALUE) sb.append("EARFCN: ").append(id.getEarfcn()).append("\n");
-                              if (id.getMcc() != Integer.MAX_VALUE) sb.append("MCC/MNC: ").append(id.getMcc()).append("/").append(id.getMnc()).append("\n");
-                              sb.append("SCORE: ").append(score).append("/100 → ").append(SignalInterpreter.scoreToGrade(score)).append("\n\n");
+                              if (id.getMcc() != Integer.MAX_VALUE)
+                                  sb.append("MCC/MNC: ").append(id.getMcc()).append("/").append(id.getMnc()).append("\n");
+                              sb.append("SCORE: ").append(score).append("/100 → ")
+                                .append(SignalInterpreter.scoreToGrade(score)).append("\n\n");
                           } else if (ci instanceof CellInfoWcdma && SignalInterpreter.isWcdma(dataType)) {
                               CellInfoWcdma c = (CellInfoWcdma) ci;
                               CellSignalStrengthWcdma sig = c.getCellSignalStrength();
@@ -886,25 +864,34 @@ jobs:
                               if (hasEcno) { try { ecno = sig.getEcNo(); } catch (Throwable t) { hasEcno = false; } }
                               int score = nativeWcdmaScore(dbm, ecno, hasEcno);
                               sb.append("=== 3G WCDMA ===\n");
-                              sb.append("RSCP/Dbm: ").append(dbm).append(" dBm → ").append(SignalInterpreter.wcdmaDbmGrade(dbm)).append("\n");
-                              if (hasEcno) sb.append("Ec/Io: ").append(ecno).append(" dB → ").append(SignalInterpreter.wcdmaEcnoGrade(ecno)).append("\n");
-                              else sb.append("Ec/Io: N/A (Android 8 — needs API 30+)\n");
-                              sb.append("Level: ").append(sig.getLevel()).append("/4 ").append(SignalInterpreter.bars(sig.getLevel())).append("\n");
+                              sb.append("RSCP/Dbm: ").append(dbm).append(" dBm → ")
+                                .append(SignalInterpreter.wcdmaDbmGrade(dbm)).append("\n");
+                              if (hasEcno)
+                                  sb.append("Ec/Io: ").append(ecno).append(" dB → ")
+                                    .append(SignalInterpreter.wcdmaEcnoGrade(ecno)).append("\n");
+                              else
+                                  sb.append("Ec/Io: N/A (Android 8 — needs API 30+)\n");
+                              sb.append("Level: ").append(sig.getLevel()).append("/4 ")
+                                .append(SignalInterpreter.bars(sig.getLevel())).append("\n");
                               if (id.getCid() != Integer.MAX_VALUE) sb.append("CellID: ").append(id.getCid()).append("\n");
                               if (id.getPsc() != Integer.MAX_VALUE) sb.append("PSC: ").append(id.getPsc()).append("\n");
                               if (id.getLac() != Integer.MAX_VALUE) sb.append("LAC: ").append(id.getLac()).append("\n");
                               if (id.getUarfcn() != Integer.MAX_VALUE) sb.append("UARFCN: ").append(id.getUarfcn()).append("\n");
-                              if (id.getMcc() != Integer.MAX_VALUE) sb.append("MCC/MNC: ").append(id.getMcc()).append("/").append(id.getMnc()).append("\n");
-                              sb.append("SCORE: ").append(score).append("/100 → ").append(SignalInterpreter.scoreToGrade(score)).append("\n\n");
+                              if (id.getMcc() != Integer.MAX_VALUE)
+                                  sb.append("MCC/MNC: ").append(id.getMcc()).append("/").append(id.getMnc()).append("\n");
+                              sb.append("SCORE: ").append(score).append("/100 → ")
+                                .append(SignalInterpreter.scoreToGrade(score)).append("\n\n");
                           } else if (ci instanceof CellInfoGsm && SignalInterpreter.isGsm(dataType)) {
                               CellInfoGsm c = (CellInfoGsm) ci;
                               CellSignalStrengthGsm sig = c.getCellSignalStrength();
                               CellIdentityGsm id = c.getCellIdentity();
                               int dbm = sig.getDbm();
                               sb.append("=== 2G GSM ===\n");
-                              sb.append("RxLev: ").append(dbm).append(" dBm → ").append(SignalInterpreter.gsmDbmGrade(dbm)).append("\n");
+                              sb.append("RxLev: ").append(dbm).append(" dBm → ")
+                                .append(SignalInterpreter.gsmDbmGrade(dbm)).append("\n");
                               sb.append("BER: ").append(sig.getBitErrorRate()).append("\n");
-                              sb.append("Level: ").append(sig.getLevel()).append("/4 ").append(SignalInterpreter.bars(sig.getLevel())).append("\n");
+                              sb.append("Level: ").append(sig.getLevel()).append("/4 ")
+                                .append(SignalInterpreter.bars(sig.getLevel())).append("\n");
                               if (id.getCid() != Integer.MAX_VALUE) sb.append("CellID: ").append(id.getCid()).append("\n");
                               if (id.getLac() != Integer.MAX_VALUE) sb.append("LAC: ").append(id.getLac()).append("\n\n");
                           }
@@ -977,9 +964,7 @@ jobs:
           git config --local user.email "action@github.com"
           git config --local user.name "SignalDeep Bot"
           git add -A
-          if git diff --cached --quiet; then
-            echo "No changes"
-          else
+          if git diff --cached --quiet; then echo "No changes"; else
             git commit -m "chore: auto-generate project files [skip ci]"
             git push
           fi
