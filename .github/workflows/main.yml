@@ -7,12 +7,17 @@ on:
     branches: [ "main" ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -67,11 +72,6 @@ jobs:
           }
           EOF
 
-          echo "=== settings.gradle ==="
-          cat settings.gradle
-          echo "=== build.gradle ==="
-          cat build.gradle
-
       - name: Create project files
         run: |
           set -e
@@ -79,6 +79,19 @@ jobs:
           mkdir -p app/src/main/res/layout
           mkdir -p app/src/main/res/values
           mkdir -p app/src/main/cpp
+
+          cat > .gitignore << 'EOF'
+          build/
+          .gradle/
+          app/build/
+          local.properties
+          *.apk
+          *.iml
+          .idea/
+          gradle/wrapper/gradle-wrapper.jar
+          gradlew
+          gradlew.bat
+          EOF
 
           cat > gradle.properties << 'EOF'
           android.useAndroidX=true
@@ -125,7 +138,6 @@ jobs:
                   targetCompatibility JavaVersion.VERSION_17
               }
           }
-          // 👇 رفع تداخل نسخه‌های kotlin-stdlib
           configurations.all {
               resolutionStrategy {
                   force 'org.jetbrains.kotlin:kotlin-stdlib:1.8.22'
@@ -149,25 +161,35 @@ jobs:
           cat > app/src/main/cpp/native-lib.cpp << 'EOF'
           #include <jni.h>
           #include <string>
+          #include <cmath>
           #include <android/log.h>
 
           #define LOG_TAG "SignalNative"
           #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 
+          static double clamp01(double v) { return v < 0 ? 0 : (v > 1 ? 1 : v); }
+
           extern "C" JNIEXPORT jstring JNICALL
           Java_com_example_signaldeep_MainActivity_stringFromNative(
-                  JNIEnv* env, jobject /* this */) {
-              std::string hello = "Hello from C++ (Native layer)";
-              LOGI("Native function called");
-              return env->NewStringUTF(hello.c_str());
+                  JNIEnv* env, jobject) {
+              return env->NewStringUTF("Native layer active (C++17)");
           }
 
-          extern "C" JNIEXPORT jdouble JNICALL
-          Java_com_example_signaldeep_SignalSamplingService_computeSignalScore(
-                  JNIEnv* env, jobject /* this */, jint rsrp, jint rsrq, jint sinr) {
-              double score = (rsrp + 140) * 0.5 + (rsrq + 20) * 0.3 + (sinr + 10) * 0.2;
-              LOGI("Native computeScore: rsrp=%d, rsrq=%d, sinr=%d -> score=%.2f", rsrp, rsrq, sinr, score);
-              return score;
+          extern "C" JNIEXPORT jint JNICALL
+          Java_com_example_signaldeep_MainActivity_nativeLteScore(
+                  JNIEnv*, jobject, jint rsrp, jint rsrq, jint sinr) {
+              double qR = clamp01((rsrp + 130.0) / 50.0);
+              double qQ = clamp01((rsrq + 20.0)  / 10.0);
+              double qS = clamp01( sinr        / 20.0);
+              return (jint)std::lround(100.0 * (0.4*qR + 0.3*qQ + 0.3*qS));
+          }
+
+          extern "C" JNIEXPORT jint JNICALL
+          Java_com_example_signaldeep_MainActivity_nativeWcdmaScore(
+                  JNIEnv*, jobject, jint dbm, jint ecno) {
+              double qP = clamp01((dbm  + 110.0) / 40.0);
+              double qE = clamp01((ecno + 12.0)  / 8.0);
+              return (jint)std::lround(100.0 * (0.6*qP + 0.4*qE));
           }
           EOF
 
@@ -181,7 +203,6 @@ jobs:
               <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
               <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
               <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-              <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
               <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
               <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
                   tools:ignore="ProtectedPermissions" />
@@ -196,8 +217,7 @@ jobs:
                       </intent-filter>
                   </activity>
                   <activity android:name=".CorrelationActivity" android:exported="false" />
-                  <service android:name=".SignalSamplingService"
-                      android:foregroundServiceType="dataSync" />
+                  <service android:name=".SignalSamplingService" />
               </application>
           </manifest>
           EOF
@@ -211,39 +231,23 @@ jobs:
           cat > app/src/main/res/layout/activity_main.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-              android:orientation="vertical"
-              android:padding="12dp"
-              android:layout_width="match_parent"
-              android:layout_height="match_parent">
-              <Button android:id="@+id/btn_perms"
-                  android:text="Grant Runtime Permissions"
-                  android:layout_width="match_parent"
-                  android:layout_height="wrap_content" />
-              <Button android:id="@+id/btn_usage"
-                  android:text="Grant Usage Access"
-                  android:layout_width="match_parent"
-                  android:layout_height="wrap_content" />
-              <Button android:id="@+id/btn_start"
-                  android:text="Start Sampling"
-                  android:layout_width="match_parent"
-                  android:layout_height="wrap_content" />
-              <Button android:id="@+id/btn_stop"
-                  android:text="Stop Sampling"
-                  android:layout_width="match_parent"
-                  android:layout_height="wrap_content" />
-              <Button android:id="@+id/btn_history"
-                  android:text="View History"
-                  android:layout_width="match_parent"
-                  android:layout_height="wrap_content" />
-              <ScrollView android:layout_width="match_parent"
-                  android:layout_height="0dp"
-                  android:layout_weight="1"
-                  android:layout_marginTop="8dp">
-                  <TextView android:id="@+id/tv_signal"
-                      android:textSize="14sp"
+              android:orientation="vertical" android:padding="12dp"
+              android:layout_width="match_parent" android:layout_height="match_parent">
+              <Button android:id="@+id/btn_perms" android:text="Grant Permissions"
+                  android:layout_width="match_parent" android:layout_height="wrap_content" />
+              <Button android:id="@+id/btn_usage" android:text="Grant Usage Access"
+                  android:layout_width="match_parent" android:layout_height="wrap_content" />
+              <Button android:id="@+id/btn_start" android:text="Start Sampling"
+                  android:layout_width="match_parent" android:layout_height="wrap_content" />
+              <Button android:id="@+id/btn_stop" android:text="Stop Sampling"
+                  android:layout_width="match_parent" android:layout_height="wrap_content" />
+              <Button android:id="@+id/btn_history" android:text="View History"
+                  android:layout_width="match_parent" android:layout_height="wrap_content" />
+              <ScrollView android:layout_width="match_parent" android:layout_height="0dp"
+                  android:layout_weight="1" android:layout_marginTop="8dp">
+                  <TextView android:id="@+id/tv_signal" android:textSize="13sp"
                       android:fontFamily="monospace"
-                      android:layout_width="match_parent"
-                      android:layout_height="wrap_content" />
+                      android:layout_width="match_parent" android:layout_height="wrap_content" />
               </ScrollView>
           </LinearLayout>
           EOF
@@ -251,14 +255,107 @@ jobs:
           cat > app/src/main/res/layout/activity_correlation.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-              android:orientation="vertical"
-              android:padding="8dp"
-              android:layout_width="match_parent"
-              android:layout_height="match_parent">
-              <ListView android:id="@+id/list"
-                  android:layout_width="match_parent"
+              android:orientation="vertical" android:padding="8dp"
+              android:layout_width="match_parent" android:layout_height="match_parent">
+              <ListView android:id="@+id/list" android:layout_width="match_parent"
                   android:layout_height="match_parent" />
           </LinearLayout>
+          EOF
+
+          cat > app/src/main/java/com/example/signaldeep/SignalInterpreter.java << 'EOF'
+          package com.example.signaldeep;
+
+          public class SignalInterpreter {
+              public static String lteRsrpGrade(int v) {
+                  if (v >= -80) return "EXCELLENT (4/4)";
+                  if (v >= -90) return "GOOD (3/4)";
+                  if (v >= -100) return "FAIR (2/4)";
+                  if (v >= -110) return "POOR (1/4)";
+                  if (v >= -120) return "VERY POOR (0/4)";
+                  return "NO SIGNAL";
+              }
+              public static String lteRsrqGrade(int v) {
+                  if (v >= -10) return "EXCELLENT";
+                  if (v >= -15) return "GOOD";
+                  if (v >= -20) return "FAIR";
+                  return "POOR";
+              }
+              public static String lteSinrGrade(int v) {
+                  if (v >= 20) return "EXCELLENT";
+                  if (v >= 13) return "GOOD";
+                  if (v >= 0)  return "FAIR";
+                  return "POOR";
+              }
+              public static String wcdmaDbmGrade(int v) {
+                  if (v >= -70)  return "EXCELLENT (4/4)";
+                  if (v >= -85)  return "GOOD (3/4)";
+                  if (v >= -100) return "FAIR (2/4)";
+                  if (v >= -110) return "POOR (1/4)";
+                  return "NO SIGNAL";
+              }
+              public static String wcdmaEcnoGrade(int v) {
+                  if (v >= -4)  return "EXCELLENT";
+                  if (v >= -8)  return "GOOD";
+                  if (v >= -12) return "FAIR";
+                  return "POOR";
+              }
+              public static String gsmDbmGrade(int v) {
+                  if (v >= -75)  return "EXCELLENT (4/4)";
+                  if (v >= -85)  return "GOOD (3/4)";
+                  if (v >= -95)  return "FAIR (2/4)";
+                  if (v >= -105) return "POOR (1/4)";
+                  return "NO SIGNAL";
+              }
+              public static String scoreToGrade(int s) {
+                  if (s >= 85) return "EXCELLENT";
+                  if (s >= 65) return "GOOD";
+                  if (s >= 40) return "FAIR";
+                  if (s >= 20) return "POOR";
+                  return "VERY POOR";
+              }
+              public static String bars(int level) {
+                  switch (level) {
+                      case 0: return "[    ]";
+                      case 1: return "[|   ]";
+                      case 2: return "[||  ]";
+                      case 3: return "[||| ]";
+                      case 4: return "[||||]";
+                      default: return "[????]";
+                  }
+              }
+              public static String networkName(int type) {
+                  switch (type) {
+                      case 1: return "GPRS (2G)";
+                      case 2: return "EDGE (2G)";
+                      case 3: return "UMTS (3G)";
+                      case 4: return "CDMA (2G)";
+                      case 5: return "EVDO_0 (3G)";
+                      case 6: return "EVDO_A (3G)";
+                      case 7: return "1xRTT (2G)";
+                      case 8: return "HSDPA (3G)";
+                      case 9: return "HSUPA (3G)";
+                      case 10: return "HSPA (3G)";
+                      case 11: return "iDEN (2G)";
+                      case 12: return "EVDO_B (3G)";
+                      case 13: return "LTE (4G)";
+                      case 14: return "eHRPD (3G)";
+                      case 15: return "HSPAP (3G)";
+                      case 16: return "GSM (2G)";
+                      case 17: return "TD-SCDMA (3G)";
+                      case 18: return "IWLAN";
+                      case 19: return "LTE-CA (4G+)";
+                      default: return "UNKNOWN (" + type + ")";
+                  }
+              }
+              public static boolean isLte(int t)  { return t == 13 || t == 19; }
+              public static boolean isWcdma(int t) {
+                  return t == 3 || t == 5 || t == 6 || t == 8 || t == 9 ||
+                         t == 10 || t == 12 || t == 14 || t == 15 || t == 17;
+              }
+              public static boolean isGsm(int t) {
+                  return t == 1 || t == 2 || t == 4 || t == 7 || t == 11 || t == 16;
+              }
+          }
           EOF
 
           cat > app/src/main/java/com/example/signaldeep/SignalSample.java << 'EOF'
@@ -266,9 +363,19 @@ jobs:
 
           public class SignalSample {
               public long timestamp;
-              public int rsrp, rsrq, rssi, sinr, level, cqi;
-              public int cellId, pci, earfcn;
-              public String foregroundApp;
+              public String networkType;
+              public int level;
+              public int power;
+              public int quality;
+              public int sinr;
+              public int cellId;
+              public int pci;
+              public int areaCode;
+              public int freqCode;
+              public int mcc, mnc;
+              public int score;
+              public String grade;
+              public String fgApp;
               public int wifiRssi;
               public String wifiSsid;
           }
@@ -282,66 +389,68 @@ jobs:
           import android.database.Cursor;
           import android.database.sqlite.SQLiteDatabase;
           import android.database.sqlite.SQLiteOpenHelper;
+          import java.text.SimpleDateFormat;
           import java.util.ArrayList;
+          import java.util.Date;
           import java.util.List;
+          import java.util.Locale;
 
           public class DatabaseHelper extends SQLiteOpenHelper {
-              public DatabaseHelper(Context c) { super(c, "signal.db", null, 1); }
+              public DatabaseHelper(Context c) { super(c, "signal.db", null, 2); }
 
-              @Override
-              public void onCreate(SQLiteDatabase db) {
+              @Override public void onCreate(SQLiteDatabase db) {
                   db.execSQL("CREATE TABLE samples (" +
-                      "id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER, " +
-                      "rsrp INTEGER, rsrq INTEGER, rssi INTEGER, sinr INTEGER, " +
-                      "level INTEGER, cqi INTEGER, cellId INTEGER, pci INTEGER, " +
-                      "earfcn INTEGER, fg TEXT, wifiRssi INTEGER, wifiSsid TEXT)");
+                      "id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER, net TEXT, " +
+                      "lvl INTEGER, pw INTEGER, q INTEGER, sinr INTEGER, " +
+                      "cid INTEGER, pci INTEGER, area INTEGER, freq INTEGER, " +
+                      "mcc INTEGER, mnc INTEGER, score INTEGER, grade TEXT, " +
+                      "fg TEXT, wrssi INTEGER, wssid TEXT)");
               }
-
-              @Override
-              public void onUpgrade(SQLiteDatabase db, int o, int n) {
-                  db.execSQL("DROP TABLE IF EXISTS samples");
-                  onCreate(db);
+              @Override public void onUpgrade(SQLiteDatabase db, int o, int n) {
+                  db.execSQL("DROP TABLE IF EXISTS samples"); onCreate(db);
               }
-
               public void insert(SignalSample s) {
                   SQLiteDatabase db = getWritableDatabase();
                   ContentValues v = new ContentValues();
-                  v.put("ts", s.timestamp);
-                  v.put("rsrp", s.rsrp); v.put("rsrq", s.rsrq);
-                  v.put("rssi", s.rssi); v.put("sinr", s.sinr);
-                  v.put("level", s.level); v.put("cqi", s.cqi);
-                  v.put("cellId", s.cellId); v.put("pci", s.pci);
-                  v.put("earfcn", s.earfcn);
-                  v.put("fg", s.foregroundApp);
-                  v.put("wifiRssi", s.wifiRssi); v.put("wifiSsid", s.wifiSsid);
-                  db.insert("samples", null, v);
-                  db.close();
+                  v.put("ts", s.timestamp); v.put("net", s.networkType);
+                  v.put("lvl", s.level); v.put("pw", s.power);
+                  v.put("q", s.quality); v.put("sinr", s.sinr);
+                  v.put("cid", s.cellId); v.put("pci", s.pci);
+                  v.put("area", s.areaCode); v.put("freq", s.freqCode);
+                  v.put("mcc", s.mcc); v.put("mnc", s.mnc);
+                  v.put("score", s.score); v.put("grade", s.grade);
+                  v.put("fg", s.fgApp);
+                  v.put("wrssi", s.wifiRssi); v.put("wssid", s.wifiSsid);
+                  db.insert("samples", null, v); db.close();
               }
-
               public List<String> getRecent(int n) {
                   List<String> out = new ArrayList<>();
                   SQLiteDatabase db = getReadableDatabase();
                   Cursor c = db.rawQuery(
-                      "SELECT ts, rsrp, rsrq, sinr, level, cellId, pci, earfcn, fg, wifiRssi " +
+                      "SELECT ts,net,lvl,pw,q,sinr,cid,pci,area,freq,score,grade,fg,wrssi " +
                       "FROM samples ORDER BY ts DESC LIMIT " + n, null);
+                  SimpleDateFormat f = new SimpleDateFormat("HH:mm:ss", Locale.US);
                   while (c.moveToNext()) {
                       StringBuilder sb = new StringBuilder();
-                      sb.append(new java.util.Date(c.getLong(0))).append("\n");
-                      sb.append("RSRP=").append(c.getInt(1)).append("dBm ");
-                      sb.append("RSRQ=").append(c.getInt(2)).append("dB ");
-                      sb.append("SINR=").append(c.getInt(3));
-                      sb.append(" Lvl=").append(c.getInt(4)).append("/4\n");
-                      sb.append("Cell=").append(c.getInt(5));
-                      sb.append(" PCI=").append(c.getInt(6));
-                      sb.append(" EARFCN=").append(c.getInt(7)).append("\n");
-                      sb.append("WiFi=").append(c.getInt(9)).append("dBm");
-                      String fg = c.getString(8);
-                      if (fg != null && !fg.isEmpty()) sb.append(" | FG:").append(fg);
+                      sb.append(f.format(new Date(c.getLong(0)))).append("  ");
+                      sb.append(c.getString(1)).append("  ");
+                      sb.append(SignalInterpreter.bars(c.getInt(2))).append("\n");
+                      sb.append("   Power=").append(c.getInt(3)).append("dBm  ");
+                      sb.append("Quality=").append(c.getInt(4)).append("  ");
+                      sb.append("SINR=").append(c.getInt(5)).append("\n");
+                      sb.append("   Cell=").append(c.getInt(6)).append("  ");
+                      sb.append("PCI/PSC=").append(c.getInt(7)).append("  ");
+                      sb.append("TAC/LAC=").append(c.getInt(8)).append("  ");
+                      sb.append("Freq=").append(c.getInt(9)).append("\n");
+                      sb.append("   SCORE=").append(c.getInt(10)).append("/100  ");
+                      sb.append(c.getString(11)).append("\n");
+                      String fg = c.getString(12);
+                      if (fg != null && !fg.isEmpty()) sb.append("   FG App: ").append(fg).append("\n");
+                      int wr = c.getInt(13);
+                      if (wr != 0) sb.append("   WiFi: ").append(wr).append("dBm\n");
                       out.add(sb.toString());
                   }
-                  c.close();
-                  db.close();
-                  return out;
+                  c.close(); db.close(); return out;
               }
           }
           EOF
@@ -357,15 +466,22 @@ jobs:
           import android.app.usage.UsageStatsManager;
           import android.content.Context;
           import android.content.Intent;
+          import android.content.pm.PackageManager;
           import android.net.wifi.WifiInfo;
           import android.net.wifi.WifiManager;
           import android.os.Handler;
           import android.os.IBinder;
           import android.os.Looper;
+          import android.telephony.CellIdentityGsm;
           import android.telephony.CellIdentityLte;
+          import android.telephony.CellIdentityWcdma;
           import android.telephony.CellInfo;
+          import android.telephony.CellInfoGsm;
           import android.telephony.CellInfoLte;
+          import android.telephony.CellInfoWcdma;
+          import android.telephony.CellSignalStrengthGsm;
           import android.telephony.CellSignalStrengthLte;
+          import android.telephony.CellSignalStrengthWcdma;
           import android.telephony.SignalStrength;
           import android.telephony.TelephonyManager;
           import android.util.Log;
@@ -373,11 +489,6 @@ jobs:
           import java.util.List;
 
           public class SignalSamplingService extends Service {
-              static {
-                  System.loadLibrary("native-lib");
-              }
-              public native double computeSignalScore(int rsrp, int rsrq, int sinr);
-
               private static final String CH = "signal_ch";
               private static final String TAG = "SignalSampling";
               private Handler h;
@@ -386,9 +497,9 @@ jobs:
               private WifiManager wm;
               private DatabaseHelper db;
               private UsageStatsManager usm;
+              private MainActivity nat;
 
-              @Override
-              public void onCreate() {
+              @Override public void onCreate() {
                   super.onCreate();
                   tm = (TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE);
                   wm = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
@@ -398,18 +509,16 @@ jobs:
                   NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
                   NotificationChannel ch = new NotificationChannel(CH, "Signal Sampling", NotificationManager.IMPORTANCE_LOW);
                   nm.createNotificationChannel(ch);
-
                   Notification n = new NotificationCompat.Builder(this, CH)
                       .setContentTitle("SignalDeep Sampling")
-                      .setContentText("Collecting signal data...")
+                      .setContentText("Collecting signal data every 5s...")
                       .setSmallIcon(android.R.drawable.ic_menu_info_details)
                       .build();
                   startForeground(1, n);
 
                   h = new Handler(Looper.getMainLooper());
                   r = new Runnable() {
-                      @Override
-                      public void run() {
+                      @Override public void run() {
                           try { sample(); } catch (Exception e) { Log.w(TAG, "sample", e); }
                           h.postDelayed(this, 5000);
                       }
@@ -421,6 +530,16 @@ jobs:
                   SignalSample s = new SignalSample();
                   s.timestamp = System.currentTimeMillis();
 
+                  int dataType = 0;
+                  try {
+                      if (checkSelfPermission(android.Manifest.permission.READ_PHONE_STATE)
+                              == PackageManager.PERMISSION_GRANTED) {
+                          dataType = tm.getDataNetworkType();
+                      }
+                  } catch (Exception e) { Log.w(TAG, "type", e); }
+
+                  s.networkType = SignalInterpreter.networkName(dataType);
+
                   try {
                       SignalStrength ss = tm.getSignalStrength();
                       if (ss != null) s.level = ss.getLevel();
@@ -430,19 +549,56 @@ jobs:
                       List<CellInfo> infos = tm.getAllCellInfo();
                       if (infos != null) {
                           for (CellInfo ci : infos) {
-                              if (ci instanceof CellInfoLte) {
+                              if (ci instanceof CellInfoLte && SignalInterpreter.isLte(dataType)) {
                                   CellInfoLte c = (CellInfoLte) ci;
                                   CellSignalStrengthLte sig = c.getCellSignalStrength();
                                   CellIdentityLte id = c.getCellIdentity();
-                                  s.rsrp = sig.getRsrp();
-                                  s.rsrq = sig.getRsrq();
-                                  s.rssi = sig.getRssi();
+                                  s.power = sig.getRsrp();
+                                  s.quality = sig.getRsrq();
                                   s.sinr = sig.getRssnr();
-                                  s.level = sig.getLevel();
-                                  s.cqi = sig.getCqi();
-                                  s.cellId = id.getCi();
-                                  s.pci = id.getPci();
-                                  s.earfcn = id.getEarfcn();
+                                  if (s.level == 0) s.level = sig.getLevel();
+                                  if (id.getCi() != Integer.MAX_VALUE) s.cellId = id.getCi();
+                                  if (id.getPci() != Integer.MAX_VALUE) s.pci = id.getPci();
+                                  if (id.getTac() != Integer.MAX_VALUE) s.areaCode = id.getTac();
+                                  if (id.getEarfcn() != Integer.MAX_VALUE) s.freqCode = id.getEarfcn();
+                                  if (id.getMcc() != Integer.MAX_VALUE) s.mcc = id.getMcc();
+                                  if (id.getMnc() != Integer.MAX_VALUE) s.mnc = id.getMnc();
+                                  s.score = MainActivity.nativeLteScore(s.power, s.quality, s.sinr);
+                                  s.grade = SignalInterpreter.lteRsrpGrade(s.power) + " / " + SignalInterpreter.lteRsrqGrade(s.quality);
+                                  break;
+                              } else if (ci instanceof CellInfoWcdma && SignalInterpreter.isWcdma(dataType)) {
+                                  CellInfoWcdma c = (CellInfoWcdma) ci;
+                                  CellSignalStrengthWcdma sig = c.getCellSignalStrength();
+                                  CellIdentityWcdma id = c.getCellIdentity();
+                                  s.power = sig.getDbm();
+                                  s.quality = sig.getEcNo();
+                                  s.sinr = 0;
+                                  if (s.level == 0) s.level = sig.getLevel();
+                                  if (id.getCid() != Integer.MAX_VALUE) s.cellId = id.getCid();
+                                  if (id.getPsc() != Integer.MAX_VALUE) s.pci = id.getPsc();
+                                  if (id.getLac() != Integer.MAX_VALUE) s.areaCode = id.getLac();
+                                  if (id.getUarfcn() != Integer.MAX_VALUE) s.freqCode = id.getUarfcn();
+                                  if (id.getMcc() != Integer.MAX_VALUE) s.mcc = id.getMcc();
+                                  if (id.getMnc() != Integer.MAX_VALUE) s.mnc = id.getMnc();
+                                  s.score = MainActivity.nativeWcdmaScore(s.power, s.quality);
+                                  s.grade = SignalInterpreter.wcdmaDbmGrade(s.power) + " / " + SignalInterpreter.wcdmaEcnoGrade(s.quality);
+                                  break;
+                              } else if (ci instanceof CellInfoGsm && SignalInterpreter.isGsm(dataType)) {
+                                  CellInfoGsm c = (CellInfoGsm) ci;
+                                  CellSignalStrengthGsm sig = c.getCellSignalStrength();
+                                  CellIdentityGsm id = c.getCellIdentity();
+                                  s.power = sig.getDbm();
+                                  s.quality = sig.getBitErrorRate();
+                                  s.sinr = 0;
+                                  if (s.level == 0) s.level = sig.getLevel();
+                                  if (id.getCid() != Integer.MAX_VALUE) s.cellId = id.getCid();
+                                  if (id.getBsic() != Integer.MAX_VALUE) s.pci = id.getBsic();
+                                  if (id.getLac() != Integer.MAX_VALUE) s.areaCode = id.getLac();
+                                  if (id.getArfcn() != Integer.MAX_VALUE) s.freqCode = id.getArfcn();
+                                  if (id.getMcc() != Integer.MAX_VALUE) s.mcc = id.getMcc();
+                                  if (id.getMnc() != Integer.MAX_VALUE) s.mnc = id.getMnc();
+                                  s.score = 50;
+                                  s.grade = SignalInterpreter.gsmDbmGrade(s.power);
                                   break;
                               }
                           }
@@ -451,48 +607,28 @@ jobs:
 
                   try {
                       long now = System.currentTimeMillis();
-                      List<UsageStats> stats = usm.queryUsageStats(
-                          UsageStatsManager.INTERVAL_DAILY, now - 60000, now);
-                      String fg = "";
-                      long latest = 0;
-                      if (stats != null) {
-                          for (UsageStats u : stats) {
-                              if (u.getLastTimeUsed() > latest) {
-                                  latest = u.getLastTimeUsed();
-                                  fg = u.getPackageName();
-                              }
-                          }
-                      }
-                      s.foregroundApp = fg;
+                      List<UsageStats> stats = usm.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, now - 60000, now);
+                      long latest = 0; String fg = "";
+                      if (stats != null) for (UsageStats u : stats)
+                          if (u.getLastTimeUsed() > latest) { latest = u.getLastTimeUsed(); fg = u.getPackageName(); }
+                      s.fgApp = fg;
                   } catch (Exception e) { Log.w(TAG, "usage", e); }
 
                   try {
                       if (wm != null && wm.isWifiEnabled()) {
                           WifiInfo wi = wm.getConnectionInfo();
-                          if (wi != null) {
-                              s.wifiRssi = wi.getRssi();
-                              s.wifiSsid = wi.getSSID();
+                          if (wi != null && wi.getRssi() < 0) {
+                              s.wifiRssi = wi.getRssi(); s.wifiSsid = wi.getSSID();
                           }
                       }
                   } catch (Exception e) { Log.w(TAG, "wifi", e); }
 
-                  double nativeScore = computeSignalScore(s.rsrp, s.rsrq, s.sinr);
-                  Log.d(TAG, "Native signal score: " + nativeScore);
-
                   db.insert(s);
               }
 
-              @Override
-              public int onStartCommand(Intent i, int f, int st) { return START_STICKY; }
-
-              @Override
-              public void onDestroy() {
-                  if (h != null && r != null) h.removeCallbacks(r);
-                  super.onDestroy();
-              }
-
-              @Override
-              public IBinder onBind(Intent i) { return null; }
+              @Override public int onStartCommand(Intent i, int f, int st) { return START_STICKY; }
+              @Override public void onDestroy() { if (h != null && r != null) h.removeCallbacks(r); super.onDestroy(); }
+              @Override public IBinder onBind(Intent i) { return null; }
           }
           EOF
 
@@ -506,10 +642,16 @@ jobs:
           import android.os.Handler;
           import android.os.Looper;
           import android.provider.Settings;
+          import android.telephony.CellIdentityGsm;
           import android.telephony.CellIdentityLte;
+          import android.telephony.CellIdentityWcdma;
           import android.telephony.CellInfo;
+          import android.telephony.CellInfoGsm;
           import android.telephony.CellInfoLte;
+          import android.telephony.CellInfoWcdma;
+          import android.telephony.CellSignalStrengthGsm;
           import android.telephony.CellSignalStrengthLte;
+          import android.telephony.CellSignalStrengthWcdma;
           import android.telephony.SignalStrength;
           import android.telephony.TelephonyManager;
           import android.widget.TextView;
@@ -524,6 +666,8 @@ jobs:
                   System.loadLibrary("native-lib");
               }
               public native String stringFromNative();
+              public static native int nativeLteScore(int rsrp, int rsrq, int sinr);
+              public static native int nativeWcdmaScore(int dbm, int ecno);
 
               private TextView tvSignal;
               private TelephonyManager tm;
@@ -532,8 +676,7 @@ jobs:
                   @Override public void run() { refresh(); handler.postDelayed(this, 3000); }
               };
 
-              @Override
-              protected void onCreate(Bundle b) {
+              @Override protected void onCreate(Bundle b) {
                   super.onCreate(b);
                   setContentView(R.layout.activity_main);
                   tvSignal = findViewById(R.id.tv_signal);
@@ -552,21 +695,21 @@ jobs:
 
                   findViewById(R.id.btn_start).setOnClickListener(v -> {
                       try {
-                          ContextCompat.startForegroundService(MainActivity.this,
-                              new Intent(MainActivity.this, SignalSamplingService.class));
-                          Toast.makeText(MainActivity.this, "Sampling started", Toast.LENGTH_SHORT).show();
+                          ContextCompat.startForegroundService(this,
+                              new Intent(this, SignalSamplingService.class));
+                          Toast.makeText(this, "Sampling started", Toast.LENGTH_SHORT).show();
                       } catch (Exception e) {
-                          Toast.makeText(MainActivity.this, "Err: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                          Toast.makeText(this, "Err: " + e.getMessage(), Toast.LENGTH_LONG).show();
                       }
                   });
 
                   findViewById(R.id.btn_stop).setOnClickListener(v -> {
-                      stopService(new Intent(MainActivity.this, SignalSamplingService.class));
-                      Toast.makeText(MainActivity.this, "Stopped", Toast.LENGTH_SHORT).show();
+                      stopService(new Intent(this, SignalSamplingService.class));
+                      Toast.makeText(this, "Stopped", Toast.LENGTH_SHORT).show();
                   });
 
                   findViewById(R.id.btn_history).setOnClickListener(v ->
-                      startActivity(new Intent(MainActivity.this, CorrelationActivity.class)));
+                      startActivity(new Intent(this, CorrelationActivity.class)));
               }
 
               @Override protected void onResume() { super.onResume(); handler.post(poller); }
@@ -574,42 +717,90 @@ jobs:
 
               private void refresh() {
                   StringBuilder sb = new StringBuilder();
-                  sb.append("Native says: ").append(stringFromNative()).append("\n\n");
+                  sb.append("Native: ").append(stringFromNative()).append("\n\n");
+
+                  int dataType = 0;
                   try {
-                      boolean hasLoc = ContextCompat.checkSelfPermission(this,
-                          Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
-                      if (!hasLoc) {
-                          sb.append("Grant runtime permissions first.\n");
+                      if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_STATE)
+                              == PackageManager.PERMISSION_GRANTED) {
+                          dataType = tm.getDataNetworkType();
                       } else {
-                          SignalStrength ss = tm.getSignalStrength();
-                          if (ss != null) sb.append("System Level: ").append(ss.getLevel()).append("/4\n");
-                          List<CellInfo> infos = tm.getAllCellInfo();
-                          if (infos == null || infos.isEmpty()) {
-                              sb.append("No cell info available (Samsung often hides neighbor cells).\n");
-                          } else {
-                              for (CellInfo ci : infos) {
-                                  if (ci instanceof CellInfoLte) {
-                                      CellInfoLte c = (CellInfoLte) ci;
-                                      CellSignalStrengthLte sig = c.getCellSignalStrength();
-                                      CellIdentityLte id = c.getCellIdentity();
-                                      sb.append("=== LTE ===\n");
-                                      sb.append("RSRP: ").append(sig.getRsrp()).append(" dBm\n");
-                                      sb.append("RSRQ: ").append(sig.getRsrq()).append(" dB\n");
-                                      sb.append("RSSI: ").append(sig.getRssi()).append(" dBm\n");
-                                      sb.append("SINR: ").append(sig.getRssnr()).append("\n");
-                                      sb.append("Level: ").append(sig.getLevel()).append("/4\n");
-                                      sb.append("CQI: ").append(sig.getCqi()).append("\n");
-                                      sb.append("CellID: ").append(id.getCi()).append("\n");
-                                      sb.append("PCI: ").append(id.getPci()).append("\n");
-                                      sb.append("EARFCN: ").append(id.getEarfcn()).append("\n");
-                                      sb.append("TAC: ").append(id.getTac()).append("\n");
-                                      sb.append("MCC/MNC: ").append(id.getMcc()).append("/").append(id.getMnc()).append("\n");
-                                  }
-                              }
-                          }
+                          sb.append("Grant READ_PHONE_STATE to detect network type.\n");
                       }
-                  } catch (Exception e) {
-                      sb.append("Err: ").append(e.getMessage()).append("\n");
+                  } catch (Exception e) { sb.append("Type error: ").append(e.getMessage()).append("\n"); }
+
+                  sb.append("Active data: ").append(SignalInterpreter.networkName(dataType)).append("\n");
+
+                  boolean hasLoc = ContextCompat.checkSelfPermission(this,
+                      Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+                  if (!hasLoc) { sb.append("Grant LOCATION permission first.\n"); tvSignal.setText(sb.toString()); return; }
+
+                  SignalStrength ss = null;
+                  try { ss = tm.getSignalStrength(); } catch (Exception ignored) {}
+                  if (ss != null) {
+                      int lvl = ss.getLevel();
+                      sb.append("System level: ").append(lvl).append("/4 ").append(SignalInterpreter.bars(lvl)).append("\n");
+                  }
+
+                  List<CellInfo> infos = null;
+                  try { infos = tm.getAllCellInfo(); } catch (Exception ignored) {}
+                  if (infos == null || infos.isEmpty()) {
+                      sb.append("No cell info available (Samsung often hides this).\n");
+                      tvSignal.setText(sb.toString()); return;
+                  }
+
+                  for (CellInfo ci : infos) {
+                      if (ci instanceof CellInfoLte && SignalInterpreter.isLte(dataType)) {
+                          CellInfoLte c = (CellInfoLte) ci;
+                          CellSignalStrengthLte sig = c.getCellSignalStrength();
+                          CellIdentityLte id = c.getCellIdentity();
+                          int rsrp = sig.getRsrp(), rsrq = sig.getRsrq(), sinr = sig.getRssnr();
+                          int score = nativeLteScore(rsrp, rsrq, sinr);
+                          sb.append("=== 4G LTE (serving) ===\n");
+                          sb.append("RSRP: ").append(rsrp).append(" dBm → ").append(SignalInterpreter.lteRsrpGrade(rsrp)).append("\n");
+                          sb.append("RSRQ: ").append(rsrq).append(" dB  → ").append(SignalInterpreter.lteRsrqGrade(rsrq)).append("\n");
+                          sb.append("SINR: ").append(sinr).append("     → ").append(SignalInterpreter.lteSinrGrade(sinr)).append("\n");
+                          sb.append("RSSI: ").append(sig.getRssi()).append(" dBm\n");
+                          sb.append("CQI:  ").append(sig.getCqi()).append("\n");
+                          sb.append("Level: ").append(sig.getLevel()).append("/4 ").append(SignalInterpreter.bars(sig.getLevel())).append("\n");
+                          sb.append("--- Identity ---\n");
+                          if (id.getCi() != Integer.MAX_VALUE) sb.append("CellID: ").append(id.getCi()).append("\n");
+                          if (id.getPci() != Integer.MAX_VALUE) sb.append("PCI: ").append(id.getPci()).append("\n");
+                          if (id.getTac() != Integer.MAX_VALUE) sb.append("TAC: ").append(id.getTac()).append("\n");
+                          if (id.getEarfcn() != Integer.MAX_VALUE) sb.append("EARFCN: ").append(id.getEarfcn()).append("\n");
+                          if (id.getMcc() != Integer.MAX_VALUE) sb.append("MCC/MNC: ").append(id.getMcc()).append("/").append(id.getMnc()).append("\n");
+                          sb.append("--- Score ---\n");
+                          sb.append("Quality: ").append(score).append("/100 → ").append(SignalInterpreter.scoreToGrade(score)).append("\n\n");
+                      } else if (ci instanceof CellInfoWcdma && SignalInterpreter.isWcdma(dataType)) {
+                          CellInfoWcdma c = (CellInfoWcdma) ci;
+                          CellSignalStrengthWcdma sig = c.getCellSignalStrength();
+                          CellIdentityWcdma id = c.getCellIdentity();
+                          int dbm = sig.getDbm(), ecno = sig.getEcNo();
+                          int score = nativeWcdmaScore(dbm, ecno);
+                          sb.append("=== 3G WCDMA (serving) ===\n");
+                          sb.append("RSCP/DBM: ").append(dbm).append(" dBm → ").append(SignalInterpreter.wcdmaDbmGrade(dbm)).append("\n");
+                          sb.append("Ec/Io:    ").append(ecno).append(" dB  → ").append(SignalInterpreter.wcdmaEcnoGrade(ecno)).append("\n");
+                          sb.append("Level: ").append(sig.getLevel()).append("/4 ").append(SignalInterpreter.bars(sig.getLevel())).append("\n");
+                          sb.append("--- Identity ---\n");
+                          if (id.getCid() != Integer.MAX_VALUE) sb.append("CellID: ").append(id.getCid()).append("\n");
+                          if (id.getPsc() != Integer.MAX_VALUE) sb.append("PSC: ").append(id.getPsc()).append("\n");
+                          if (id.getLac() != Integer.MAX_VALUE) sb.append("LAC: ").append(id.getLac()).append("\n");
+                          if (id.getUarfcn() != Integer.MAX_VALUE) sb.append("UARFCN: ").append(id.getUarfcn()).append("\n");
+                          if (id.getMcc() != Integer.MAX_VALUE) sb.append("MCC/MNC: ").append(id.getMcc()).append("/").append(id.getMnc()).append("\n");
+                          sb.append("--- Score ---\n");
+                          sb.append("Quality: ").append(score).append("/100 → ").append(SignalInterpreter.scoreToGrade(score)).append("\n\n");
+                      } else if (ci instanceof CellInfoGsm && SignalInterpreter.isGsm(dataType)) {
+                          CellInfoGsm c = (CellInfoGsm) ci;
+                          CellSignalStrengthGsm sig = c.getCellSignalStrength();
+                          CellIdentityGsm id = c.getCellIdentity();
+                          int dbm = sig.getDbm();
+                          sb.append("=== 2G GSM (serving) ===\n");
+                          sb.append("RxLev: ").append(dbm).append(" dBm → ").append(SignalInterpreter.gsmDbmGrade(dbm)).append("\n");
+                          sb.append("BER:   ").append(sig.getBitErrorRate()).append("\n");
+                          sb.append("Level: ").append(sig.getLevel()).append("/4 ").append(SignalInterpreter.bars(sig.getLevel())).append("\n");
+                          if (id.getCid() != Integer.MAX_VALUE) sb.append("CellID: ").append(id.getCid()).append("\n");
+                          if (id.getLac() != Integer.MAX_VALUE) sb.append("LAC: ").append(id.getLac()).append("\n\n");
+                      }
                   }
                   tvSignal.setText(sb.toString());
               }
@@ -626,13 +817,12 @@ jobs:
           import java.util.List;
 
           public class CorrelationActivity extends AppCompatActivity {
-              @Override
-              protected void onCreate(Bundle b) {
+              @Override protected void onCreate(Bundle b) {
                   super.onCreate(b);
                   setContentView(R.layout.activity_correlation);
                   ListView lv = findViewById(R.id.list);
                   DatabaseHelper db = new DatabaseHelper(this);
-                  List<String> rows = db.getRecent(100);
+                  List<String> rows = db.getRecent(200);
                   lv.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, rows));
               }
           }
@@ -641,17 +831,14 @@ jobs:
       - name: Verify all files present
         run: |
           set -e
-          echo "=== Project files ==="
-          find . -type f \( -name "*.gradle" -o -name "*.java" -o -name "*.xml" -o -name "*.cpp" -o -name "*.txt" -o -name "*.properties" \) | sort
           for f in \
-            settings.gradle \
-            build.gradle \
-            gradle.properties \
+            settings.gradle build.gradle gradle.properties .gitignore \
             app/build.gradle \
             app/src/main/AndroidManifest.xml \
             app/src/main/res/values/strings.xml \
             app/src/main/res/layout/activity_main.xml \
             app/src/main/res/layout/activity_correlation.xml \
+            app/src/main/java/com/example/signaldeep/SignalInterpreter.java \
             app/src/main/java/com/example/signaldeep/SignalSample.java \
             app/src/main/java/com/example/signaldeep/DatabaseHelper.java \
             app/src/main/java/com/example/signaldeep/SignalSamplingService.java \
@@ -659,11 +846,7 @@ jobs:
             app/src/main/java/com/example/signaldeep/CorrelationActivity.java \
             app/src/main/cpp/CMakeLists.txt \
             app/src/main/cpp/native-lib.cpp ; do
-            if [ ! -f "$f" ]; then
-              echo "MISSING: $f"
-              exit 1
-            fi
-            echo "OK: $f"
+            [ -f "$f" ] && echo "OK: $f" || { echo "MISSING: $f"; exit 1; }
           done
 
       - name: Generate Gradle wrapper
@@ -677,3 +860,16 @@ jobs:
         with:
           name: signal-deep-apk
           path: app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Commit and push generated files to repo
+        if: success() && github.event_name != 'pull_request'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "SignalDeep Bot"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore: auto-generate project files [skip ci]"
+            git push
+          fi
