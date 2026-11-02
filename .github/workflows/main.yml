@@ -134,15 +134,13 @@ jobs:
           Java_com_example_signaldeep_MainActivity_stringFromNative(JNIEnv* env, jobject) {
               return env->NewStringUTF("Native layer active (C++17)");
           }
-          // Updated score logic: includes CQI as a quality factor
           extern "C" JNIEXPORT jint JNICALL
           Java_com_example_signaldeep_MainActivity_nativeLteScore(
                   JNIEnv*, jobject, jint rsrp, jint rsrq, jint sinr, jint cqi) {
               double qR = clamp01((rsrp + 130.0) / 50.0);
               double qQ = clamp01((rsrq + 20.0)  / 10.0);
               double qS = clamp01( sinr        / 20.0);
-              double qC = (cqi >= 0) ? clamp01(cqi / 15.0) : 0.0; // CQI 0-15
-              // Weighted average: RSRP 35%, RSRQ 25%, SINR 25%, CQI 15%
+              double qC = (cqi >= 0) ? clamp01(cqi / 15.0) : 0.0;
               return (jint)std::lround(100.0 * (0.35*qR + 0.25*qQ + 0.25*qS + 0.15*qC));
           }
           extern "C" JNIEXPORT jint JNICALL
@@ -431,6 +429,13 @@ jobs:
                   if (v >= -8)  return "GOOD";
                   if (v >= -12) return "FAIR";
                   return "POOR";
+              }
+              public static String gsmDbmGrade(int v) {
+                  if (v >= -75)  return "EXCELLENT";
+                  if (v >= -85)  return "GOOD";
+                  if (v >= -95)  return "FAIR";
+                  if (v >= -105) return "POOR";
+                  return "NO SIGNAL";
               }
               public static String scoreToGrade(int s) {
                   if (s >= 85) return "EXCELLENT";
@@ -907,7 +912,6 @@ jobs:
                                   sb.append("CQI:  ").append(cqi).append(" → ")
                                     .append(SignalInterpreter.lteCqiGrade(cqi)).append("\n");
                               }
-                              // RSSI is API 30+
                               if (Build.VERSION.SDK_INT >= 30) {
                                   try {
                                       int rssi = sig.getRssi();
@@ -1002,6 +1006,7 @@ jobs:
             settings.gradle build.gradle gradle.properties .gitignore \
             app/build.gradle app/src/main/AndroidManifest.xml \
             app/src/main/res/values/strings.xml \
+            app/src/main/res/values/colors.xml \
             app/src/main/res/layout/activity_main.xml \
             app/src/main/res/layout/activity_correlation.xml \
             app/src/main/java/com/example/signaldeep/SignalLogger.java \
