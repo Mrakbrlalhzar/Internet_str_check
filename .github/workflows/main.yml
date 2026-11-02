@@ -39,9 +39,6 @@ jobs:
           sudo mv gradle-8.7 /opt/gradle
           echo "/opt/gradle/bin" >> $GITHUB_PATH
 
-      # ============================================================
-      # مرحله جدید: ساخت settings.gradle و build.gradle قبل از wrapper
-      # ============================================================
       - name: Setup Gradle repositories
         run: |
           set -e
@@ -85,7 +82,7 @@ jobs:
 
           cat > gradle.properties << 'EOF'
           android.useAndroidX=true
-          android.enableJetifier=false
+          android.enableJetifier=true
           org.gradle.jvmargs=-Xmx2048m
           EOF
 
@@ -126,6 +123,14 @@ jobs:
               compileOptions {
                   sourceCompatibility JavaVersion.VERSION_17
                   targetCompatibility JavaVersion.VERSION_17
+              }
+          }
+          // 👇 رفع تداخل نسخه‌های kotlin-stdlib
+          configurations.all {
+              resolutionStrategy {
+                  force 'org.jetbrains.kotlin:kotlin-stdlib:1.8.22'
+                  force 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.22'
+                  force 'org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.22'
               }
           }
           dependencies {
