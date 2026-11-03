@@ -56,6 +56,10 @@ jobs:
       - name: Create project files
         run: |
           set -e
+          # 🚨 پاک کردن فایل‌های قدیمی برای جلوگیری از تداخل 🚨
+          rm -rf app/src/main/java/com/example/signaldeep
+          rm -rf app/src/main/cpp
+
           mkdir -p app/src/main/java/com/example/signaldeep
           mkdir -p app/src/main/res/layout app/src/main/res/values app/src/main/res/drawable
 
@@ -87,8 +91,8 @@ jobs:
                   applicationId "com.example.signaldeep"
                   minSdk 26
                   targetSdk 34
-                  versionCode 8
-                  versionName "2.4"
+                  versionCode 9
+                  versionName "2.5"
               }
               buildTypes { release { minifyEnabled false } }
               compileOptions {
