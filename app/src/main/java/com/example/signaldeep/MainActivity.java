@@ -21,38 +21,31 @@ public class MainActivity extends AppCompatActivity {
     private TelephonyManager tm;
     private PhoneStateListener phoneStateListener;
 
-    private Handler dataHandler = new Handler(Looper.getMainLooper());
-    private Handler animHandler = new Handler(Looper.getMainLooper());
+    private Handler handler = new Handler(Looper.getMainLooper());
+    private TextView tvRsrpCur, tvRsrpMinMax, tvRsrpQual;
+    private TextView tvRsrqCur, tvRsrqMinMax, tvRsrqQual;
+    private TextView tvSinrCur, tvSinrMinMax, tvSinrQual;
+    private TextView tvCqiCur, tvCqiMinMax, tvCqiQual;
 
-    private TextView tvRsrp, tvRsrq, tvSinr, tvCqi;
     private BarChartView chartRsrp, chartRsrq, chartSinr, chartCqi;
 
-    private float targetRsrp = 0f, targetRsrq = 0f, targetSinr = 0f, targetCqi = 0f;
-    private int colorRsrp = 0xFF4CAF50, colorRsrq = 0xFF4CAF50, colorSinr = 0xFF4CAF50, colorCqi = 0xFF4CAF50;
     private int rawRsrp = -140, rawRsrq = -20, rawSinr = 0, rawCqi = 0;
+    private int minRsrp = 0, maxRsrp = -140;
+    private int minRsrq = 0, maxRsrq = -20;
+    private int minSinr = 100, maxSinr = -100;
+    private int minCqi = 15, maxCqi = 0;
 
-    private float currentRsrp = 0f, currentRsrq = 0f, currentSinr = 0f, currentCqi = 0f;
-
-    private final Runnable animTicker = new Runnable() {
+    private final Runnable ticker = new Runnable() {
         @Override public void run() {
-            currentRsrp += (targetRsrp - currentRsrp) * 0.1f;
-            currentRsrq += (targetRsrq - currentRsrq) * 0.1f;
-            currentSinr += (targetSinr - currentSinr) * 0.1f;
-            currentCqi += (targetCqi - currentCqi) * 0.1f;
-
-            chartRsrp.addValue(currentRsrp, colorRsrp);
-            chartRsrq.addValue(currentRsrq, colorRsrq);
-            chartSinr.addValue(currentSinr, colorSinr);
-            chartCqi.addValue(currentCqi, colorCqi);
-
-            animHandler.postDelayed(this, 100);
+            fetchSignalData();
+            handler.postDelayed(this, 100);
         }
     };
 
-    private final Runnable textUpdater = new Runnable() {
+    private final Runnable textTicker = new Runnable() {
         @Override public void run() {
-            updateTextViews();
-            dataHandler.postDelayed(this, 3000);
+            updateStats();
+            handler.postDelayed(this, 500);
         }
     };
 
@@ -62,15 +55,36 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         tm = (TelephonyManager) getSystemService(TELEPHONY_SERVICE);
 
-        tvRsrp = findViewById(R.id.tv_rsrp_val);
-        tvRsrq = findViewById(R.id.tv_rsrq_val);
-        tvSinr = findViewById(R.id.tv_sinr_val);
-        tvCqi = findViewById(R.id.tv_cqi_val);
+        tvRsrpCur = findViewById(R.id.tv_rsrp_current);
+        tvRsrpMinMax = findViewById(R.id.tv_rsrp_minmax);
+        tvRsrpQual = findViewById(R.id.tv_rsrp_quality);
+        tvRsrqCur = findViewById(R.id.tv_rsrq_current);
+        tvRsrqMinMax = findViewById(R.id.tv_rsrq_minmax);
+        tvRsrqQual = findViewById(R.id.tv_rsrq_quality);
+        tvSinrCur = findViewById(R.id.tv_sinr_current);
+        tvSinrMinMax = findViewById(R.id.tv_sinr_minmax);
+        tvSinrQual = findViewById(R.id.tv_sinr_quality);
+        tvCqiCur = findViewById(R.id.tv_cqi_current);
+        tvCqiMinMax = findViewById(R.id.tv_cqi_minmax);
+        tvCqiQual = findViewById(R.id.tv_cqi_quality);
 
         chartRsrp = findViewById(R.id.chart_rsrp);
         chartRsrq = findViewById(R.id.chart_rsrq);
         chartSinr = findViewById(R.id.chart_sinr);
         chartCqi = findViewById(R.id.chart_cqi);
+
+        // Set actual valid ranges for LTE parameters based on 3GPP / Android docs
+        chartRsrp.setYRange(-140, -43);
+        chartRsrp.setThresholds(-90, -105); // Green at -90, Orange at -105
+
+        chartRsrq.setYRange(-20, -3);
+        chartRsrq.setThresholds(-15, -20); // Green at -15, Orange at -20
+
+        chartSinr.setYRange(-20, 30);
+        chartSinr.setThresholds(13, 0); // Green at 13, Orange at 0
+
+        chartCqi.setYRange(0, 15);
+        chartCqi.setThresholds(10, 4); // Green at 10, Orange at 4
 
         findViewById(R.id.btn_loginfo).setOnClickListener(v -> {
             java.io.File f = SignalLogger.getFile();
@@ -101,17 +115,16 @@ public class MainActivity extends AppCompatActivity {
             ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED) {
             tm.listen(phoneStateListener, PhoneStateListener.LISTEN_CELL_INFO | PhoneStateListener.LISTEN_SIGNAL_STRENGTHS);
         }
-        animHandler.post(animTicker);
-        dataHandler.post(textUpdater);
-        fetchSignalData();
+        handler.post(ticker);
+        handler.post(textTicker);
     }
 
     @Override
     protected void onStop() {
         super.onStop();
         tm.listen(phoneStateListener, PhoneStateListener.LISTEN_NONE);
-        animHandler.removeCallbacks(animTicker);
-        dataHandler.removeCallbacks(textUpdater);
+        handler.removeCallbacks(ticker);
+        handler.removeCallbacks(textTicker);
         SignalLogger.log("Main", "App went to background. Sampling stopped.");
     }
 
@@ -129,15 +142,19 @@ public class MainActivity extends AppCompatActivity {
                         rawSinr = sig.getRssnr();
                         rawCqi = (Build.VERSION.SDK_INT >= 26) ? sig.getCqi() : 0;
 
-                        targetRsrp = Math.max(0, Math.min(1, (rawRsrp + 140f) / 60f));
-                        targetRsrq = Math.max(0, Math.min(1, (rawRsrq + 20f) / 15f));
-                        targetSinr = Math.max(0, Math.min(1, (rawSinr + 10f) / 35f));
-                        targetCqi = Math.max(0, Math.min(1, rawCqi / 15f));
+                        if (rawRsrp < minRsrp) minRsrp = rawRsrp;
+                        if (rawRsrp > maxRsrp) maxRsrp = rawRsrp;
+                        if (rawRsrq < minRsrq) minRsrq = rawRsrq;
+                        if (rawRsrq > maxRsrq) maxRsrq = rawRsrq;
+                        if (rawSinr < minSinr) minSinr = rawSinr;
+                        if (rawSinr > maxSinr) maxSinr = rawSinr;
+                        if (rawCqi < minCqi) minCqi = rawCqi;
+                        if (rawCqi > maxCqi) maxCqi = rawCqi;
 
-                        colorRsrp = SignalInterpreter.colorForRsrp(rawRsrp);
-                        colorRsrq = SignalInterpreter.colorForRsrq(rawRsrq);
-                        colorSinr = SignalInterpreter.colorForSinr(rawSinr);
-                        colorCqi = SignalInterpreter.colorForCqi(rawCqi);
+                        chartRsrp.addValue(rawRsrp, SignalInterpreter.colorForRsrp(rawRsrp));
+                        chartRsrq.addValue(rawRsrq, SignalInterpreter.colorForRsrq(rawRsrq));
+                        chartSinr.addValue(rawSinr, SignalInterpreter.colorForSinr(rawSinr));
+                        chartCqi.addValue(rawCqi, SignalInterpreter.colorForCqi(rawCqi));
 
                         SignalLogger.debug("Sample", "RSRP=" + rawRsrp + " RSRQ=" + rawRsrq + " SINR=" + rawSinr + " CQI=" + rawCqi);
                         break;
@@ -149,10 +166,21 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void updateTextViews() {
-        tvRsrp.setText("RSRP: " + rawRsrp + " dBm\n" + SignalInterpreter.lteRsrpGrade(rawRsrp));
-        tvRsrq.setText("RSRQ: " + rawRsrq + " dB\n" + SignalInterpreter.lteRsrqGrade(rawRsrq));
-        tvSinr.setText("SINR: " + rawSinr + "\n" + SignalInterpreter.lteSinrGrade(rawSinr));
-        tvCqi.setText("CQI: " + rawCqi + "\n" + SignalInterpreter.lteCqiGrade(rawCqi));
+    private void updateStats() {
+        tvRsrpCur.setText("Current: " + rawRsrp + " dBm");
+        tvRsrpMinMax.setText("Min-Max: " + minRsrp + " / " + maxRsrp);
+        tvRsrpQual.setText("Quality: " + SignalInterpreter.lteRsrpGrade(rawRsrp));
+
+        tvRsrqCur.setText("Current: " + rawRsrq + " dB");
+        tvRsrqMinMax.setText("Min-Max: " + minRsrq + " / " + maxRsrq);
+        tvRsrqQual.setText("Quality: " + SignalInterpreter.lteRsrqGrade(rawRsrq));
+
+        tvSinrCur.setText("Current: " + rawSinr);
+        tvSinrMinMax.setText("Min-Max: " + minSinr + " / " + maxSinr);
+        tvSinrQual.setText("Quality: " + SignalInterpreter.lteSinrGrade(rawSinr));
+
+        tvCqiCur.setText("Current: " + rawCqi);
+        tvCqiMinMax.setText("Min-Max: " + minCqi + " / " + maxCqi);
+        tvCqiQual.setText("Quality: " + SignalInterpreter.lteCqiGrade(rawCqi));
     }
 }

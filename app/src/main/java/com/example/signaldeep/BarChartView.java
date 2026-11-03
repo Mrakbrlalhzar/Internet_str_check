@@ -2,32 +2,44 @@ package com.example.signaldeep;
 
 import android.content.Context;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.Paint;
 import android.util.AttributeSet;
 import android.view.View;
 
 public class BarChartView extends View {
-    private float[] values = new float[40];
-    private int[] colors = new int[40];
+    private float[] values = new float[60]; // 60 bars = 6 seconds of history at 100ms
+    private int[] colors = new int[60];
     private Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private int barColor = 0xFF4CAF50;
+    private Paint gridPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private Paint thresholdPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+
+    private float minY = 0, maxY = 100;
+    private float threshGood = 75, threshFair = 40;
 
     public BarChartView(Context context, AttributeSet attrs) {
         super(context, attrs);
         for (int i = 0; i < values.length; i++) {
-            values[i] = 0;
-            colors[i] = barColor;
+            values[i] = minY;
+            colors[i] = 0xFF4CAF50;
         }
+        gridPaint.setColor(0xFF333333);
+        gridPaint.setStrokeWidth(2f);
+        textPaint.setColor(0xFF888888);
+        textPaint.setTextSize(24f);
+        thresholdPaint.setStrokeWidth(2f);
     }
 
-    public void setBarColor(int color) { this.barColor = color; }
+    public void setYRange(float min, float max) { this.minY = min; this.maxY = max; }
+    public void setThresholds(float good, float fair) { this.threshGood = good; this.threshFair = fair; }
 
     public void addValue(float value, int color) {
         for (int i = 0; i < values.length - 1; i++) {
             values[i] = values[i + 1];
             colors[i] = colors[i + 1];
         }
-        values[values.length - 1] = value;
+        values[values.length - 1] = Math.max(minY, Math.min(maxY, value));
         colors[colors.length - 1] = color;
         invalidate();
     }
@@ -36,25 +48,46 @@ public class BarChartView extends View {
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
         if (values.length == 0) return;
+
         float width = getWidth();
         float height = getHeight();
-        float barWidth = width / values.length;
-        float spacing = 2f;
+        float paddingLeft = 60f;
+        float paddingBottom = 20f;
+        float chartWidth = width - paddingLeft;
+        float chartHeight = height - paddingBottom;
 
-        paint.setColor(0xFF2A2A3A);
-        paint.setStrokeWidth(1f);
-        for (int i = 0; i < 4; i++) {
-            float y = height - (height / 4f * i);
-            canvas.drawLine(0, y, width, y, paint);
+        // Draw Y-axis labels and horizontal grid lines
+        textPaint.setTextAlign(Paint.Align.RIGHT);
+        float step = (maxY - minY) / 3f;
+        for (int i = 0; i <= 3; i++) {
+            float val = minY + (step * i);
+            float y = chartHeight - ((val - minY) / (maxY - minY) * chartHeight);
+            canvas.drawLine(paddingLeft, y, width, y, gridPaint);
+            canvas.drawText(String.valueOf((int)val), paddingLeft - 8, y + 8, textPaint);
         }
 
+        // Draw Threshold Lines
+        thresholdPaint.setColor(0xFF4CAF50); // Green (Good)
+        float yGood = chartHeight - ((threshGood - minY) / (maxY - minY) * chartHeight);
+        if (yGood >= 0 && yGood <= chartHeight) {
+            canvas.drawLine(paddingLeft, yGood, width, yGood, thresholdPaint);
+        }
+
+        thresholdPaint.setColor(0xFFFF9800); // Orange (Fair)
+        float yFair = chartHeight - ((threshFair - minY) / (maxY - minY) * chartHeight);
+        if (yFair >= 0 && yFair <= chartHeight) {
+            canvas.drawLine(paddingLeft, yFair, width, yFair, thresholdPaint);
+        }
+
+        // Draw Bars
+        float barWidth = chartWidth / values.length;
         for (int i = 0; i < values.length; i++) {
             paint.setColor(colors[i]);
-            float left = i * barWidth;
-            float right = left + barWidth - spacing;
-            float normalized = Math.max(0f, Math.min(1f, values[i]));
-            float top = height - (normalized * (height - 10f));
-            canvas.drawRect(left, top, right, height, paint);
+            float left = paddingLeft + i * barWidth;
+            float right = left + barWidth - 1;
+            float val = values[i];
+            float top = chartHeight - ((val - minY) / (maxY - minY) * chartHeight);
+            canvas.drawRect(left, top, right, chartHeight, paint);
         }
     }
 }

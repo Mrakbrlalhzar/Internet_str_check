@@ -1,37 +1,58 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent" android:layout_height="match_parent"
-    android:background="@color/bg_dark">
+    android:background="@color/bg_main">
     <LinearLayout android:orientation="vertical" android:padding="16dp"
         android:layout_width="match_parent" android:layout_height="wrap_content">
-        <TextView android:text="Live Signal Metrics" android:textSize="24sp"
-            android:textStyle="bold" android:textColor="@color/accent"
-            android:layout_marginBottom="16dp" android:layout_width="wrap_content" android:layout_height="wrap_content" />
 
-        <LinearLayout android:orientation="vertical" android:background="@drawable/card_bg" android:padding="16dp" android:layout_marginBottom="16dp" android:layout_width="match_parent" android:layout_height="wrap_content">
-            <TextView android:id="@+id/tv_rsrp_val" android:text="RSRP: -- dBm" android:textSize="20sp" android:textStyle="bold" android:textColor="@color/text_primary" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
-            <com.example.signaldeep.BarChartView android:id="@+id/chart_rsrp" android:layout_width="match_parent" android:layout_height="100dp" android:layout_marginTop="12dp" android:layout_marginBottom="12dp"/>
-            <TextView android:text="RSRP: Indicates the raw power of the LTE signal. Higher is better." android:textSize="12sp" android:textColor="@color/text_secondary" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+        <TextView android:text="SignalDeep" android:textSize="28sp" android:textStyle="bold"
+            android:textColor="#00E676" android:gravity="center"
+            android:layout_marginBottom="16dp" android:layout_width="match_parent" android:layout_height="wrap_content" />
+
+        <!-- RSRP Card -->
+        <LinearLayout android:orientation="vertical" android:background="@drawable/card_outer" android:padding="8dp" android:layout_marginBottom="16dp" android:layout_width="match_parent" android:layout_height="wrap_content">
+            <com.example.signaldeep.BarChartView android:id="@+id/chart_rsrp" android:layout_width="match_parent" android:layout_height="140dp" android:background="@drawable/chart_inner_bg"/>
+            <LinearLayout android:orientation="vertical" android:background="@drawable/stats_inner_bg" android:padding="12dp" android:layout_marginTop="8dp" android:layout_width="match_parent" android:layout_height="wrap_content">
+                <TextView android:text="Monitoring: RSRP (dBm)" android:textSize="14sp" android:textColor="@color/text_gray" android:gravity="center" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+                <TextView android:id="@+id/tv_rsrp_current" android:text="Current: -- dBm" android:textSize="18sp" android:textStyle="bold" android:textColor="@color/text_dark" android:gravity="center" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+                <TextView android:id="@+id/tv_rsrp_minmax" android:text="Min-Max: -- / --" android:textSize="14sp" android:textColor="@color/text_dark" android:gravity="center" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+                <TextView android:id="@+id/tv_rsrp_quality" android:text="Quality: --" android:textSize="14sp" android:textColor="@color/text_dark" android:gravity="center" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+            </LinearLayout>
         </LinearLayout>
 
-        <LinearLayout android:orientation="vertical" android:background="@drawable/card_bg" android:padding="16dp" android:layout_marginBottom="16dp" android:layout_width="match_parent" android:layout_height="wrap_content">
-            <TextView android:id="@+id/tv_rsrq_val" android:text="RSRQ: -- dB" android:textSize="20sp" android:textStyle="bold" android:textColor="@color/text_primary" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
-            <com.example.signaldeep.BarChartView android:id="@+id/chart_rsrq" android:layout_width="match_parent" android:layout_height="100dp" android:layout_marginTop="12dp" android:layout_marginBottom="12dp"/>
-            <TextView android:text="RSRQ: Indicates signal quality and interference. Higher is better." android:textSize="12sp" android:textColor="@color/text_secondary" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+        <!-- RSRQ Card -->
+        <LinearLayout android:orientation="vertical" android:background="@drawable/card_outer" android:padding="8dp" android:layout_marginBottom="16dp" android:layout_width="match_parent" android:layout_height="wrap_content">
+            <com.example.signaldeep.BarChartView android:id="@+id/chart_rsrq" android:layout_width="match_parent" android:layout_height="140dp" android:background="@drawable/chart_inner_bg"/>
+            <LinearLayout android:orientation="vertical" android:background="@drawable/stats_inner_bg" android:padding="12dp" android:layout_marginTop="8dp" android:layout_width="match_parent" android:layout_height="wrap_content">
+                <TextView android:text="Monitoring: RSRQ (dB)" android:textSize="14sp" android:textColor="@color/text_gray" android:gravity="center" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+                <TextView android:id="@+id/tv_rsrq_current" android:text="Current: -- dB" android:textSize="18sp" android:textStyle="bold" android:textColor="@color/text_dark" android:gravity="center" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+                <TextView android:id="@+id/tv_rsrq_minmax" android:text="Min-Max: -- / --" android:textSize="14sp" android:textColor="@color/text_dark" android:gravity="center" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+                <TextView android:id="@+id/tv_rsrq_quality" android:text="Quality: --" android:textSize="14sp" android:textColor="@color/text_dark" android:gravity="center" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+            </LinearLayout>
         </LinearLayout>
 
-        <LinearLayout android:orientation="vertical" android:background="@drawable/card_bg" android:padding="16dp" android:layout_marginBottom="16dp" android:layout_width="match_parent" android:layout_height="wrap_content">
-            <TextView android:id="@+id/tv_sinr_val" android:text="SINR: --" android:textSize="20sp" android:textStyle="bold" android:textColor="@color/text_primary" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
-            <com.example.signaldeep.BarChartView android:id="@+id/chart_sinr" android:layout_width="match_parent" android:layout_height="100dp" android:layout_marginTop="12dp" android:layout_marginBottom="12dp"/>
-            <TextView android:text="SINR: The most important metric for data speed. Higher is better." android:textSize="12sp" android:textColor="@color/text_secondary" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+        <!-- SINR Card -->
+        <LinearLayout android:orientation="vertical" android:background="@drawable/card_outer" android:padding="8dp" android:layout_marginBottom="16dp" android:layout_width="match_parent" android:layout_height="wrap_content">
+            <com.example.signaldeep.BarChartView android:id="@+id/chart_sinr" android:layout_width="match_parent" android:layout_height="140dp" android:background="@drawable/chart_inner_bg"/>
+            <LinearLayout android:orientation="vertical" android:background="@drawable/stats_inner_bg" android:padding="12dp" android:layout_marginTop="8dp" android:layout_width="match_parent" android:layout_height="wrap_content">
+                <TextView android:text="Monitoring: SINR (dB)" android:textSize="14sp" android:textColor="@color/text_gray" android:gravity="center" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+                <TextView android:id="@+id/tv_sinr_current" android:text="Current: --" android:textSize="18sp" android:textStyle="bold" android:textColor="@color/text_dark" android:gravity="center" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+                <TextView android:id="@+id/tv_sinr_minmax" android:text="Min-Max: -- / --" android:textSize="14sp" android:textColor="@color/text_dark" android:gravity="center" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+                <TextView android:id="@+id/tv_sinr_quality" android:text="Quality: --" android:textSize="14sp" android:textColor="@color/text_dark" android:gravity="center" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+            </LinearLayout>
         </LinearLayout>
 
-        <LinearLayout android:orientation="vertical" android:background="@drawable/card_bg" android:padding="16dp" android:layout_marginBottom="16dp" android:layout_width="match_parent" android:layout_height="wrap_content">
-            <TextView android:id="@+id/tv_cqi_val" android:text="CQI: --" android:textSize="20sp" android:textStyle="bold" android:textColor="@color/text_primary" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
-            <com.example.signaldeep.BarChartView android:id="@+id/chart_cqi" android:layout_width="match_parent" android:layout_height="100dp" android:layout_marginTop="12dp" android:layout_marginBottom="12dp"/>
-            <TextView android:text="CQI: Reports the modulation scheme the network can use. Range 0-15. Higher is better." android:textSize="12sp" android:textColor="@color/text_secondary" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+        <!-- CQI Card -->
+        <LinearLayout android:orientation="vertical" android:background="@drawable/card_outer" android:padding="8dp" android:layout_marginBottom="16dp" android:layout_width="match_parent" android:layout_height="wrap_content">
+            <com.example.signaldeep.BarChartView android:id="@+id/chart_cqi" android:layout_width="match_parent" android:layout_height="140dp" android:background="@drawable/chart_inner_bg"/>
+            <LinearLayout android:orientation="vertical" android:background="@drawable/stats_inner_bg" android:padding="12dp" android:layout_marginTop="8dp" android:layout_width="match_parent" android:layout_height="wrap_content">
+                <TextView android:text="Monitoring: CQI (0-15)" android:textSize="14sp" android:textColor="@color/text_gray" android:gravity="center" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+                <TextView android:id="@+id/tv_cqi_current" android:text="Current: --" android:textSize="18sp" android:textStyle="bold" android:textColor="@color/text_dark" android:gravity="center" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+                <TextView android:id="@+id/tv_cqi_minmax" android:text="Min-Max: -- / --" android:textSize="14sp" android:textColor="@color/text_dark" android:gravity="center" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+                <TextView android:id="@+id/tv_cqi_quality" android:text="Quality: --" android:textSize="14sp" android:textColor="@color/text_dark" android:gravity="center" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+            </LinearLayout>
         </LinearLayout>
 
-        <com.google.android.material.button.MaterialButton android:id="@+id/btn_loginfo" android:text="Where is log file?" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" />
+        <com.google.android.material.button.MaterialButton android:id="@+id/btn_loginfo" android:text="Where is log file?" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="16dp" />
     </LinearLayout>
 </ScrollView>
