@@ -19,8 +19,7 @@ public class SignalLogger {
     private static final String FILE_NAME = "signaldeep_log.txt";
     private static final long MAX_SIZE = 2 * 1024 * 1024;
     private static final Object LOCK = new Object();
-    private static final SimpleDateFormat TS =
-        new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US);
+    private static final SimpleDateFormat TS = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US);
     private static Context appCtx;
     public static void init(Context c) { appCtx = c.getApplicationContext(); }
 
@@ -28,12 +27,9 @@ public class SignalLogger {
         if (appCtx == null) return null;
         if (Build.VERSION.SDK_INT <= 28) {
             try {
-                if (appCtx.checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)
-                        == PackageManager.PERMISSION_GRANTED) {
-                    File dir = Environment.getExternalStoragePublicDirectory(
-                        Environment.DIRECTORY_DOWNLOADS);
-                    if (dir != null && (dir.exists() || dir.mkdirs()))
-                        return new File(dir, FILE_NAME);
+                if (appCtx.checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
+                    File dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+                    if (dir != null && (dir.exists() || dir.mkdirs())) return new File(dir, FILE_NAME);
                 }
             } catch (Throwable t) { Log.w(TAG, "pub dir", t); }
         }

@@ -5,6 +5,7 @@
     <color name="fair">#FFC107</color>
     <color name="poor">#FF9800</color>
     <color name="very_poor">#F44336</color>
+    <color name="bg_dark">#121212</color>
     <color name="card_bg">#1E1E2E</color>
     <color name="text_primary">#E0E0E0</color>
     <color name="text_secondary">#9E9E9E</color>

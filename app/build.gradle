@@ -2,17 +2,13 @@ plugins { id 'com.android.application' }
 android {
     namespace 'com.example.signaldeep'
     compileSdk 34
-    ndkVersion "26.1.10909125"
     defaultConfig {
         applicationId "com.example.signaldeep"
         minSdk 26
         targetSdk 34
-        versionCode 3
-        versionName "1.2"
-        externalNativeBuild { cmake { cppFlags "-std=c++17" } }
-        ndk { abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64' }
+        versionCode 9
+        versionName "2.5"
     }
-    externalNativeBuild { cmake { path "src/main/cpp/CMakeLists.txt"; version "3.22.1" } }
     buildTypes { release { minifyEnabled false } }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
