@@ -56,10 +56,7 @@ jobs:
       - name: Create project files
         run: |
           set -e
-          # 🚨 پاک کردن فایل‌های قدیمی برای جلوگیری از تداخل 🚨
           rm -rf app/src/main/java/com/example/signaldeep
-          rm -rf app/src/main/cpp
-
           mkdir -p app/src/main/java/com/example/signaldeep
           mkdir -p app/src/main/res/layout app/src/main/res/values app/src/main/res/drawable
 
@@ -91,8 +88,8 @@ jobs:
                   applicationId "com.example.signaldeep"
                   minSdk 26
                   targetSdk 34
-                  versionCode 9
-                  versionName "2.5"
+                  versionCode 12
+                  versionName "3.1"
               }
               buildTypes { release { minifyEnabled false } }
               compileOptions {
@@ -144,25 +141,40 @@ jobs:
           cat > app/src/main/res/values/colors.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
-              <color name="excellent">#4CAF50</color>
-              <color name="good">#8BC34A</color>
-              <color name="fair">#FFC107</color>
-              <color name="poor">#FF9800</color>
-              <color name="very_poor">#F44336</color>
-              <color name="bg_dark">#121212</color>
-              <color name="card_bg">#1E1E2E</color>
-              <color name="text_primary">#E0E0E0</color>
-              <color name="text_secondary">#9E9E9E</color>
-              <color name="accent">#00BCD4</color>
+              <color name="bg_main">#E0E0E0</color>
+              <color name="chart_bg">#1E1E1E</color>
+              <color name="stats_bg">#F5F5F5</color>
+              <color name="text_dark">#212121</color>
+              <color name="text_gray">#757575</color>
+              <color name="text_light">#E0E0E0</color>
+              <color name="green">#4CAF50</color>
+              <color name="orange">#FF9800</color>
+              <color name="red">#F44336</color>
           </resources>
           EOF
 
-          cat > app/src/main/res/drawable/card_bg.xml << 'EOF'
+          cat > app/src/main/res/drawable/card_outer.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <shape xmlns:android="http://schemas.android.com/apk/res/android">
-              <solid android:color="@color/card_bg" />
+              <solid android:color="#D0D0D0" />
+              <corners android:radius="24dp" />
+              <stroke android:width="2dp" android:color="#BDBDBD" />
+          </shape>
+          EOF
+
+          cat > app/src/main/res/drawable/chart_inner_bg.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <shape xmlns:android="http://schemas.android.com/apk/res/android">
+              <solid android:color="@color/chart_bg" />
               <corners android:radius="16dp" />
-              <stroke android:width="1dp" android:color="#333333" />
+          </shape>
+          EOF
+
+          cat > app/src/main/res/drawable/stats_inner_bg.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <shape xmlns:android="http://schemas.android.com/apk/res/android">
+              <solid android:color="@color/stats_bg" />
+              <corners android:radius="16dp" />
           </shape>
           EOF
 
@@ -170,35 +182,32 @@ jobs:
           <?xml version="1.0" encoding="utf-8"?>
           <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
               android:layout_width="match_parent" android:layout_height="match_parent"
-              android:background="@color/bg_dark" android:fillViewport="true">
+              android:background="#121212" android:fillViewport="true">
               <LinearLayout android:orientation="vertical" android:padding="24dp"
                   android:layout_width="match_parent" android:layout_height="wrap_content"
                   android:gravity="center_horizontal">
                   <TextView android:text="Welcome to SignalDeep" android:textSize="28sp"
-                      android:textStyle="bold" android:textColor="@color/accent"
+                      android:textStyle="bold" android:textColor="#00BCD4"
                       android:layout_marginTop="32dp" android:layout_marginBottom="8dp"
                       android:layout_width="wrap_content" android:layout_height="wrap_content" />
                   <TextView android:text="To analyze your network deeply, we need a few permissions."
-                      android:textSize="16sp" android:textColor="@color/text_secondary"
+                      android:textSize="16sp" android:textColor="#9E9E9E"
                       android:gravity="center" android:layout_marginBottom="32dp"
                       android:layout_width="match_parent" android:layout_height="wrap_content" />
-                  <LinearLayout android:orientation="vertical" android:background="@drawable/card_bg"
-                      android:padding="16dp" android:layout_marginBottom="16dp"
-                      android:layout_width="match_parent" android:layout_height="wrap_content">
-                      <TextView android:text="📍 Location" android:textSize="18sp" android:textStyle="bold" android:textColor="@color/text_primary" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
-                      <TextView android:text="Required by Android to access cellular and Wi-Fi network info. We do NOT track your location." android:textSize="14sp" android:textColor="@color/text_secondary" android:layout_marginTop="4dp" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                  <LinearLayout android:orientation="vertical" android:background="#1E1E2E"
+                      android:padding="16dp" android:layout_marginBottom="16dp" android:layout_width="match_parent" android:layout_height="wrap_content">
+                      <TextView android:text="📍 Location" android:textSize="18sp" android:textStyle="bold" android:textColor="#E0E0E0" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                      <TextView android:text="Required by Android to access cellular and Wi-Fi network info. We do NOT track your location." android:textSize="14sp" android:textColor="#9E9E9E" android:layout_marginTop="4dp" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
                   </LinearLayout>
-                  <LinearLayout android:orientation="vertical" android:background="@drawable/card_bg"
-                      android:padding="16dp" android:layout_marginBottom="16dp"
-                      android:layout_width="match_parent" android:layout_height="wrap_content">
-                      <TextView android:text="📞 Phone State" android:textSize="18sp" android:textStyle="bold" android:textColor="@color/text_primary" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
-                      <TextView android:text="Needed to read the active network type and signal parameters." android:textSize="14sp" android:textColor="@color/text_secondary" android:layout_marginTop="4dp" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                  <LinearLayout android:orientation="vertical" android:background="#1E1E2E"
+                      android:padding="16dp" android:layout_marginBottom="16dp" android:layout_width="match_parent" android:layout_height="wrap_content">
+                      <TextView android:text="📞 Phone State" android:textSize="18sp" android:textStyle="bold" android:textColor="#E0E0E0" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                      <TextView android:text="Needed to read the active network type and signal parameters." android:textSize="14sp" android:textColor="#9E9E9E" android:layout_marginTop="4dp" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
                   </LinearLayout>
-                  <LinearLayout android:orientation="vertical" android:background="@drawable/card_bg"
-                      android:padding="16dp" android:layout_marginBottom="32dp"
-                      android:layout_width="match_parent" android:layout_height="wrap_content">
-                      <TextView android:text="📊 Usage Access" android:textSize="18sp" android:textStyle="bold" android:textColor="@color/text_primary" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
-                      <TextView android:text="Used to detect which app is currently in the foreground." android:textSize="14sp" android:textColor="@color/text_secondary" android:layout_marginTop="4dp" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                  <LinearLayout android:orientation="vertical" android:background="#1E1E2E"
+                      android:padding="16dp" android:layout_marginBottom="32dp" android:layout_width="match_parent" android:layout_height="wrap_content">
+                      <TextView android:text="📊 Usage Access" android:textSize="18sp" android:textStyle="bold" android:textColor="#E0E0E0" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                      <TextView android:text="Used to detect which app is currently in the foreground." android:textSize="14sp" android:textColor="#9E9E9E" android:layout_marginTop="4dp" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
                   </LinearLayout>
                   <com.google.android.material.button.MaterialButton android:id="@+id/btn_lets_go"
                       android:text="Let's Go &amp; Grant Permissions" android:textSize="16sp"
@@ -211,38 +220,59 @@ jobs:
           <?xml version="1.0" encoding="utf-8"?>
           <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
               android:layout_width="match_parent" android:layout_height="match_parent"
-              android:background="@color/bg_dark">
+              android:background="@color/bg_main">
               <LinearLayout android:orientation="vertical" android:padding="16dp"
                   android:layout_width="match_parent" android:layout_height="wrap_content">
-                  <TextView android:text="Live Signal Metrics" android:textSize="24sp"
-                      android:textStyle="bold" android:textColor="@color/accent"
-                      android:layout_marginBottom="16dp" android:layout_width="wrap_content" android:layout_height="wrap_content" />
 
-                  <LinearLayout android:orientation="vertical" android:background="@drawable/card_bg" android:padding="16dp" android:layout_marginBottom="16dp" android:layout_width="match_parent" android:layout_height="wrap_content">
-                      <TextView android:id="@+id/tv_rsrp_val" android:text="RSRP: -- dBm" android:textSize="20sp" android:textStyle="bold" android:textColor="@color/text_primary" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
-                      <com.example.signaldeep.BarChartView android:id="@+id/chart_rsrp" android:layout_width="match_parent" android:layout_height="100dp" android:layout_marginTop="12dp" android:layout_marginBottom="12dp"/>
-                      <TextView android:text="RSRP: Indicates the raw power of the LTE signal. Higher is better." android:textSize="12sp" android:textColor="@color/text_secondary" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                  <TextView android:text="SignalDeep" android:textSize="28sp" android:textStyle="bold"
+                      android:textColor="#00E676" android:gravity="center"
+                      android:layout_marginBottom="16dp" android:layout_width="match_parent" android:layout_height="wrap_content" />
+
+                  <!-- RSRP Card -->
+                  <LinearLayout android:orientation="vertical" android:background="@drawable/card_outer" android:padding="8dp" android:layout_marginBottom="16dp" android:layout_width="match_parent" android:layout_height="wrap_content">
+                      <com.example.signaldeep.BarChartView android:id="@+id/chart_rsrp" android:layout_width="match_parent" android:layout_height="140dp" android:background="@drawable/chart_inner_bg"/>
+                      <LinearLayout android:orientation="vertical" android:background="@drawable/stats_inner_bg" android:padding="12dp" android:layout_marginTop="8dp" android:layout_width="match_parent" android:layout_height="wrap_content">
+                          <TextView android:text="Monitoring: RSRP (dBm)" android:textSize="14sp" android:textColor="@color/text_gray" android:gravity="center" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+                          <TextView android:id="@+id/tv_rsrp_current" android:text="Current: -- dBm" android:textSize="18sp" android:textStyle="bold" android:textColor="@color/text_dark" android:gravity="center" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+                          <TextView android:id="@+id/tv_rsrp_minmax" android:text="Min-Max: -- / --" android:textSize="14sp" android:textColor="@color/text_dark" android:gravity="center" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+                          <TextView android:id="@+id/tv_rsrp_quality" android:text="Quality: --" android:textSize="14sp" android:textColor="@color/text_dark" android:gravity="center" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+                      </LinearLayout>
                   </LinearLayout>
 
-                  <LinearLayout android:orientation="vertical" android:background="@drawable/card_bg" android:padding="16dp" android:layout_marginBottom="16dp" android:layout_width="match_parent" android:layout_height="wrap_content">
-                      <TextView android:id="@+id/tv_rsrq_val" android:text="RSRQ: -- dB" android:textSize="20sp" android:textStyle="bold" android:textColor="@color/text_primary" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
-                      <com.example.signaldeep.BarChartView android:id="@+id/chart_rsrq" android:layout_width="match_parent" android:layout_height="100dp" android:layout_marginTop="12dp" android:layout_marginBottom="12dp"/>
-                      <TextView android:text="RSRQ: Indicates signal quality and interference. Higher is better." android:textSize="12sp" android:textColor="@color/text_secondary" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                  <!-- RSRQ Card -->
+                  <LinearLayout android:orientation="vertical" android:background="@drawable/card_outer" android:padding="8dp" android:layout_marginBottom="16dp" android:layout_width="match_parent" android:layout_height="wrap_content">
+                      <com.example.signaldeep.BarChartView android:id="@+id/chart_rsrq" android:layout_width="match_parent" android:layout_height="140dp" android:background="@drawable/chart_inner_bg"/>
+                      <LinearLayout android:orientation="vertical" android:background="@drawable/stats_inner_bg" android:padding="12dp" android:layout_marginTop="8dp" android:layout_width="match_parent" android:layout_height="wrap_content">
+                          <TextView android:text="Monitoring: RSRQ (dB)" android:textSize="14sp" android:textColor="@color/text_gray" android:gravity="center" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+                          <TextView android:id="@+id/tv_rsrq_current" android:text="Current: -- dB" android:textSize="18sp" android:textStyle="bold" android:textColor="@color/text_dark" android:gravity="center" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+                          <TextView android:id="@+id/tv_rsrq_minmax" android:text="Min-Max: -- / --" android:textSize="14sp" android:textColor="@color/text_dark" android:gravity="center" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+                          <TextView android:id="@+id/tv_rsrq_quality" android:text="Quality: --" android:textSize="14sp" android:textColor="@color/text_dark" android:gravity="center" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+                      </LinearLayout>
                   </LinearLayout>
 
-                  <LinearLayout android:orientation="vertical" android:background="@drawable/card_bg" android:padding="16dp" android:layout_marginBottom="16dp" android:layout_width="match_parent" android:layout_height="wrap_content">
-                      <TextView android:id="@+id/tv_sinr_val" android:text="SINR: --" android:textSize="20sp" android:textStyle="bold" android:textColor="@color/text_primary" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
-                      <com.example.signaldeep.BarChartView android:id="@+id/chart_sinr" android:layout_width="match_parent" android:layout_height="100dp" android:layout_marginTop="12dp" android:layout_marginBottom="12dp"/>
-                      <TextView android:text="SINR: The most important metric for data speed. Higher is better." android:textSize="12sp" android:textColor="@color/text_secondary" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                  <!-- SINR Card -->
+                  <LinearLayout android:orientation="vertical" android:background="@drawable/card_outer" android:padding="8dp" android:layout_marginBottom="16dp" android:layout_width="match_parent" android:layout_height="wrap_content">
+                      <com.example.signaldeep.BarChartView android:id="@+id/chart_sinr" android:layout_width="match_parent" android:layout_height="140dp" android:background="@drawable/chart_inner_bg"/>
+                      <LinearLayout android:orientation="vertical" android:background="@drawable/stats_inner_bg" android:padding="12dp" android:layout_marginTop="8dp" android:layout_width="match_parent" android:layout_height="wrap_content">
+                          <TextView android:text="Monitoring: SINR (dB)" android:textSize="14sp" android:textColor="@color/text_gray" android:gravity="center" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+                          <TextView android:id="@+id/tv_sinr_current" android:text="Current: --" android:textSize="18sp" android:textStyle="bold" android:textColor="@color/text_dark" android:gravity="center" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+                          <TextView android:id="@+id/tv_sinr_minmax" android:text="Min-Max: -- / --" android:textSize="14sp" android:textColor="@color/text_dark" android:gravity="center" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+                          <TextView android:id="@+id/tv_sinr_quality" android:text="Quality: --" android:textSize="14sp" android:textColor="@color/text_dark" android:gravity="center" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+                      </LinearLayout>
                   </LinearLayout>
 
-                  <LinearLayout android:orientation="vertical" android:background="@drawable/card_bg" android:padding="16dp" android:layout_marginBottom="16dp" android:layout_width="match_parent" android:layout_height="wrap_content">
-                      <TextView android:id="@+id/tv_cqi_val" android:text="CQI: --" android:textSize="20sp" android:textStyle="bold" android:textColor="@color/text_primary" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
-                      <com.example.signaldeep.BarChartView android:id="@+id/chart_cqi" android:layout_width="match_parent" android:layout_height="100dp" android:layout_marginTop="12dp" android:layout_marginBottom="12dp"/>
-                      <TextView android:text="CQI: Reports the modulation scheme the network can use. Range 0-15. Higher is better." android:textSize="12sp" android:textColor="@color/text_secondary" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                  <!-- CQI Card -->
+                  <LinearLayout android:orientation="vertical" android:background="@drawable/card_outer" android:padding="8dp" android:layout_marginBottom="16dp" android:layout_width="match_parent" android:layout_height="wrap_content">
+                      <com.example.signaldeep.BarChartView android:id="@+id/chart_cqi" android:layout_width="match_parent" android:layout_height="140dp" android:background="@drawable/chart_inner_bg"/>
+                      <LinearLayout android:orientation="vertical" android:background="@drawable/stats_inner_bg" android:padding="12dp" android:layout_marginTop="8dp" android:layout_width="match_parent" android:layout_height="wrap_content">
+                          <TextView android:text="Monitoring: CQI (0-15)" android:textSize="14sp" android:textColor="@color/text_gray" android:gravity="center" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+                          <TextView android:id="@+id/tv_cqi_current" android:text="Current: --" android:textSize="18sp" android:textStyle="bold" android:textColor="@color/text_dark" android:gravity="center" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+                          <TextView android:id="@+id/tv_cqi_minmax" android:text="Min-Max: -- / --" android:textSize="14sp" android:textColor="@color/text_dark" android:gravity="center" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+                          <TextView android:id="@+id/tv_cqi_quality" android:text="Quality: --" android:textSize="14sp" android:textColor="@color/text_dark" android:gravity="center" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+                      </LinearLayout>
                   </LinearLayout>
 
-                  <com.google.android.material.button.MaterialButton android:id="@+id/btn_loginfo" android:text="Where is log file?" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" />
+                  <com.google.android.material.button.MaterialButton android:id="@+id/btn_loginfo" android:text="Where is log file?" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="16dp" />
               </LinearLayout>
           </ScrollView>
           EOF
@@ -351,8 +381,7 @@ jobs:
                   if (v >= -90) return "GOOD";
                   if (v >= -100) return "FAIR";
                   if (v >= -110) return "POOR";
-                  if (v >= -120) return "VERY POOR";
-                  return "NO SIGNAL";
+                  return "VERY POOR";
               }
               public static String lteRsrqGrade(int v) {
                   if (v >= -10) return "EXCELLENT";
@@ -365,7 +394,7 @@ jobs:
                   if (v >= 13) return "GOOD";
                   if (v >= 5)  return "FAIR";
                   if (v >= 0)  return "POOR";
-                  return "VERY POOR (no data)";
+                  return "VERY POOR";
               }
               public static String lteCqiGrade(int v) {
                   if (v >= 13) return "EXCELLENT";
@@ -376,22 +405,22 @@ jobs:
               }
               public static int colorForRsrp(int v) {
                   if (v >= -90) return 0xFF4CAF50;
-                  if (v >= -105) return 0xFFFFC107;
+                  if (v >= -105) return 0xFFFF9800;
                   return 0xFFF44336;
               }
               public static int colorForRsrq(int v) {
                   if (v >= -15) return 0xFF4CAF50;
-                  if (v >= -20) return 0xFFFFC107;
+                  if (v >= -20) return 0xFFFF9800;
                   return 0xFFF44336;
               }
               public static int colorForSinr(int v) {
                   if (v >= 13) return 0xFF4CAF50;
-                  if (v >= 0) return 0xFFFFC107;
+                  if (v >= 0) return 0xFFFF9800;
                   return 0xFFF44336;
               }
               public static int colorForCqi(int v) {
                   if (v >= 10) return 0xFF4CAF50;
-                  if (v >= 4) return 0xFFFFC107;
+                  if (v >= 4) return 0xFFFF9800;
                   return 0xFFF44336;
               }
           }
@@ -402,32 +431,44 @@ jobs:
 
           import android.content.Context;
           import android.graphics.Canvas;
+          import android.graphics.Color;
           import android.graphics.Paint;
           import android.util.AttributeSet;
           import android.view.View;
 
           public class BarChartView extends View {
-              private float[] values = new float[40];
-              private int[] colors = new int[40];
+              private float[] values = new float[60]; // 60 bars = 6 seconds of history at 100ms
+              private int[] colors = new int[60];
               private Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
-              private int barColor = 0xFF4CAF50;
+              private Paint gridPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+              private Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+              private Paint thresholdPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+
+              private float minY = 0, maxY = 100;
+              private float threshGood = 75, threshFair = 40;
 
               public BarChartView(Context context, AttributeSet attrs) {
                   super(context, attrs);
                   for (int i = 0; i < values.length; i++) {
-                      values[i] = 0;
-                      colors[i] = barColor;
+                      values[i] = minY;
+                      colors[i] = 0xFF4CAF50;
                   }
+                  gridPaint.setColor(0xFF333333);
+                  gridPaint.setStrokeWidth(2f);
+                  textPaint.setColor(0xFF888888);
+                  textPaint.setTextSize(24f);
+                  thresholdPaint.setStrokeWidth(2f);
               }
 
-              public void setBarColor(int color) { this.barColor = color; }
+              public void setYRange(float min, float max) { this.minY = min; this.maxY = max; }
+              public void setThresholds(float good, float fair) { this.threshGood = good; this.threshFair = fair; }
 
               public void addValue(float value, int color) {
                   for (int i = 0; i < values.length - 1; i++) {
                       values[i] = values[i + 1];
                       colors[i] = colors[i + 1];
                   }
-                  values[values.length - 1] = value;
+                  values[values.length - 1] = Math.max(minY, Math.min(maxY, value));
                   colors[colors.length - 1] = color;
                   invalidate();
               }
@@ -436,25 +477,46 @@ jobs:
               protected void onDraw(Canvas canvas) {
                   super.onDraw(canvas);
                   if (values.length == 0) return;
+
                   float width = getWidth();
                   float height = getHeight();
-                  float barWidth = width / values.length;
-                  float spacing = 2f;
+                  float paddingLeft = 60f;
+                  float paddingBottom = 20f;
+                  float chartWidth = width - paddingLeft;
+                  float chartHeight = height - paddingBottom;
 
-                  paint.setColor(0xFF2A2A3A);
-                  paint.setStrokeWidth(1f);
-                  for (int i = 0; i < 4; i++) {
-                      float y = height - (height / 4f * i);
-                      canvas.drawLine(0, y, width, y, paint);
+                  // Draw Y-axis labels and horizontal grid lines
+                  textPaint.setTextAlign(Paint.Align.RIGHT);
+                  float step = (maxY - minY) / 3f;
+                  for (int i = 0; i <= 3; i++) {
+                      float val = minY + (step * i);
+                      float y = chartHeight - ((val - minY) / (maxY - minY) * chartHeight);
+                      canvas.drawLine(paddingLeft, y, width, y, gridPaint);
+                      canvas.drawText(String.valueOf((int)val), paddingLeft - 8, y + 8, textPaint);
                   }
 
+                  // Draw Threshold Lines
+                  thresholdPaint.setColor(0xFF4CAF50); // Green (Good)
+                  float yGood = chartHeight - ((threshGood - minY) / (maxY - minY) * chartHeight);
+                  if (yGood >= 0 && yGood <= chartHeight) {
+                      canvas.drawLine(paddingLeft, yGood, width, yGood, thresholdPaint);
+                  }
+
+                  thresholdPaint.setColor(0xFFFF9800); // Orange (Fair)
+                  float yFair = chartHeight - ((threshFair - minY) / (maxY - minY) * chartHeight);
+                  if (yFair >= 0 && yFair <= chartHeight) {
+                      canvas.drawLine(paddingLeft, yFair, width, yFair, thresholdPaint);
+                  }
+
+                  // Draw Bars
+                  float barWidth = chartWidth / values.length;
                   for (int i = 0; i < values.length; i++) {
                       paint.setColor(colors[i]);
-                      float left = i * barWidth;
-                      float right = left + barWidth - spacing;
-                      float normalized = Math.max(0f, Math.min(1f, values[i]));
-                      float top = height - (normalized * (height - 10f));
-                      canvas.drawRect(left, top, right, height, paint);
+                      float left = paddingLeft + i * barWidth;
+                      float right = left + barWidth - 1;
+                      float val = values[i];
+                      float top = chartHeight - ((val - minY) / (maxY - minY) * chartHeight);
+                      canvas.drawRect(left, top, right, chartHeight, paint);
                   }
               }
           }
@@ -574,38 +636,31 @@ jobs:
               private TelephonyManager tm;
               private PhoneStateListener phoneStateListener;
 
-              private Handler dataHandler = new Handler(Looper.getMainLooper());
-              private Handler animHandler = new Handler(Looper.getMainLooper());
+              private Handler handler = new Handler(Looper.getMainLooper());
+              private TextView tvRsrpCur, tvRsrpMinMax, tvRsrpQual;
+              private TextView tvRsrqCur, tvRsrqMinMax, tvRsrqQual;
+              private TextView tvSinrCur, tvSinrMinMax, tvSinrQual;
+              private TextView tvCqiCur, tvCqiMinMax, tvCqiQual;
 
-              private TextView tvRsrp, tvRsrq, tvSinr, tvCqi;
               private BarChartView chartRsrp, chartRsrq, chartSinr, chartCqi;
 
-              private float targetRsrp = 0f, targetRsrq = 0f, targetSinr = 0f, targetCqi = 0f;
-              private int colorRsrp = 0xFF4CAF50, colorRsrq = 0xFF4CAF50, colorSinr = 0xFF4CAF50, colorCqi = 0xFF4CAF50;
               private int rawRsrp = -140, rawRsrq = -20, rawSinr = 0, rawCqi = 0;
+              private int minRsrp = 0, maxRsrp = -140;
+              private int minRsrq = 0, maxRsrq = -20;
+              private int minSinr = 100, maxSinr = -100;
+              private int minCqi = 15, maxCqi = 0;
 
-              private float currentRsrp = 0f, currentRsrq = 0f, currentSinr = 0f, currentCqi = 0f;
-
-              private final Runnable animTicker = new Runnable() {
+              private final Runnable ticker = new Runnable() {
                   @Override public void run() {
-                      currentRsrp += (targetRsrp - currentRsrp) * 0.1f;
-                      currentRsrq += (targetRsrq - currentRsrq) * 0.1f;
-                      currentSinr += (targetSinr - currentSinr) * 0.1f;
-                      currentCqi += (targetCqi - currentCqi) * 0.1f;
-
-                      chartRsrp.addValue(currentRsrp, colorRsrp);
-                      chartRsrq.addValue(currentRsrq, colorRsrq);
-                      chartSinr.addValue(currentSinr, colorSinr);
-                      chartCqi.addValue(currentCqi, colorCqi);
-
-                      animHandler.postDelayed(this, 100);
+                      fetchSignalData();
+                      handler.postDelayed(this, 100);
                   }
               };
 
-              private final Runnable textUpdater = new Runnable() {
+              private final Runnable textTicker = new Runnable() {
                   @Override public void run() {
-                      updateTextViews();
-                      dataHandler.postDelayed(this, 3000);
+                      updateStats();
+                      handler.postDelayed(this, 500);
                   }
               };
 
@@ -615,15 +670,40 @@ jobs:
                   setContentView(R.layout.activity_main);
                   tm = (TelephonyManager) getSystemService(TELEPHONY_SERVICE);
 
-                  tvRsrp = findViewById(R.id.tv_rsrp_val);
-                  tvRsrq = findViewById(R.id.tv_rsrq_val);
-                  tvSinr = findViewById(R.id.tv_sinr_val);
-                  tvCqi = findViewById(R.id.tv_cqi_val);
+                  tvRsrpCur = findViewById(R.id.tv_rsrp_current);
+                  tvRsrpMinMax = findViewById(R.id.tv_rsrp_minmax);
+                  tvRsrpQual = findViewById(R.id.tv_rsrp_quality);
+                  tvRsrqCur = findViewById(R.id.tv_rsrq_current);
+                  tvRsrqMinMax = findViewById(R.id.tv_rsrq_minmax);
+                  tvRsrqQual = findViewById(R.id.tv_rsrq_quality);
+                  tvSinrCur = findViewById(R.id.tv_sinr_current);
+                  tvSinrMinMax = findViewById(R.id.tv_sinr_minmax);
+                  tvSinrQual = findViewById(R.id.tv_sinr_quality);
+                  tvCqiCur = findViewById(R.id.tv_cqi_current);
+                  tvCqiMinMax = findViewById(R.id.tv_cqi_minmax);
+                  tvCqiQual = findViewById(R.id.tv_cqi_quality);
 
                   chartRsrp = findViewById(R.id.chart_rsrp);
                   chartRsrq = findViewById(R.id.chart_rsrq);
                   chartSinr = findViewById(R.id.chart_sinr);
                   chartCqi = findViewById(R.id.chart_cqi);
+
+                  // Set actual valid ranges for LTE parameters based on 3GPP / Android docs
+                  // RSRP: -140 to -43 dBm
+                  chartRsrp.setYRange(-140, -43);
+                  chartRsrp.setThresholds(-90, -105); // Green at -90, Orange at -105
+
+                  // RSRQ: -20 to -3 dB
+                  chartRsrq.setYRange(-20, -3);
+                  chartRsrq.setThresholds(-15, -20); // Green at -15, Orange at -20
+
+                  // SINR: -20 to +30 dB
+                  chartSinr.setYRange(-20, 30);
+                  chartSinr.setThresholds(13, 0); // Green at 13, Orange at 0
+
+                  // CQI: 0 to 15
+                  chartCqi.setYRange(0, 15);
+                  chartCqi.setThresholds(10, 4); // Green at 10, Orange at 4
 
                   findViewById(R.id.btn_loginfo).setOnClickListener(v -> {
                       java.io.File f = SignalLogger.getFile();
@@ -654,17 +734,16 @@ jobs:
                       ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED) {
                       tm.listen(phoneStateListener, PhoneStateListener.LISTEN_CELL_INFO | PhoneStateListener.LISTEN_SIGNAL_STRENGTHS);
                   }
-                  animHandler.post(animTicker);
-                  dataHandler.post(textUpdater);
-                  fetchSignalData();
+                  handler.post(ticker);
+                  handler.post(textTicker);
               }
 
               @Override
               protected void onStop() {
                   super.onStop();
                   tm.listen(phoneStateListener, PhoneStateListener.LISTEN_NONE);
-                  animHandler.removeCallbacks(animTicker);
-                  dataHandler.removeCallbacks(textUpdater);
+                  handler.removeCallbacks(ticker);
+                  handler.removeCallbacks(textTicker);
                   SignalLogger.log("Main", "App went to background. Sampling stopped.");
               }
 
@@ -682,15 +761,19 @@ jobs:
                                   rawSinr = sig.getRssnr();
                                   rawCqi = (Build.VERSION.SDK_INT >= 26) ? sig.getCqi() : 0;
 
-                                  targetRsrp = Math.max(0, Math.min(1, (rawRsrp + 140f) / 60f));
-                                  targetRsrq = Math.max(0, Math.min(1, (rawRsrq + 20f) / 15f));
-                                  targetSinr = Math.max(0, Math.min(1, (rawSinr + 10f) / 35f));
-                                  targetCqi = Math.max(0, Math.min(1, rawCqi / 15f));
+                                  if (rawRsrp < minRsrp) minRsrp = rawRsrp;
+                                  if (rawRsrp > maxRsrp) maxRsrp = rawRsrp;
+                                  if (rawRsrq < minRsrq) minRsrq = rawRsrq;
+                                  if (rawRsrq > maxRsrq) maxRsrq = rawRsrq;
+                                  if (rawSinr < minSinr) minSinr = rawSinr;
+                                  if (rawSinr > maxSinr) maxSinr = rawSinr;
+                                  if (rawCqi < minCqi) minCqi = rawCqi;
+                                  if (rawCqi > maxCqi) maxCqi = rawCqi;
 
-                                  colorRsrp = SignalInterpreter.colorForRsrp(rawRsrp);
-                                  colorRsrq = SignalInterpreter.colorForRsrq(rawRsrq);
-                                  colorSinr = SignalInterpreter.colorForSinr(rawSinr);
-                                  colorCqi = SignalInterpreter.colorForCqi(rawCqi);
+                                  chartRsrp.addValue(rawRsrp, SignalInterpreter.colorForRsrp(rawRsrp));
+                                  chartRsrq.addValue(rawRsrq, SignalInterpreter.colorForRsrq(rawRsrq));
+                                  chartSinr.addValue(rawSinr, SignalInterpreter.colorForSinr(rawSinr));
+                                  chartCqi.addValue(rawCqi, SignalInterpreter.colorForCqi(rawCqi));
 
                                   SignalLogger.debug("Sample", "RSRP=" + rawRsrp + " RSRQ=" + rawRsrq + " SINR=" + rawSinr + " CQI=" + rawCqi);
                                   break;
@@ -702,11 +785,22 @@ jobs:
                   }
               }
 
-              private void updateTextViews() {
-                  tvRsrp.setText("RSRP: " + rawRsrp + " dBm\n" + SignalInterpreter.lteRsrpGrade(rawRsrp));
-                  tvRsrq.setText("RSRQ: " + rawRsrq + " dB\n" + SignalInterpreter.lteRsrqGrade(rawRsrq));
-                  tvSinr.setText("SINR: " + rawSinr + "\n" + SignalInterpreter.lteSinrGrade(rawSinr));
-                  tvCqi.setText("CQI: " + rawCqi + "\n" + SignalInterpreter.lteCqiGrade(rawCqi));
+              private void updateStats() {
+                  tvRsrpCur.setText("Current: " + rawRsrp + " dBm");
+                  tvRsrpMinMax.setText("Min-Max: " + minRsrp + " / " + maxRsrp);
+                  tvRsrpQual.setText("Quality: " + SignalInterpreter.lteRsrpGrade(rawRsrp));
+
+                  tvRsrqCur.setText("Current: " + rawRsrq + " dB");
+                  tvRsrqMinMax.setText("Min-Max: " + minRsrq + " / " + maxRsrq);
+                  tvRsrqQual.setText("Quality: " + SignalInterpreter.lteRsrqGrade(rawRsrq));
+
+                  tvSinrCur.setText("Current: " + rawSinr);
+                  tvSinrMinMax.setText("Min-Max: " + minSinr + " / " + maxSinr);
+                  tvSinrQual.setText("Quality: " + SignalInterpreter.lteSinrGrade(rawSinr));
+
+                  tvCqiCur.setText("Current: " + rawCqi);
+                  tvCqiMinMax.setText("Min-Max: " + minCqi + " / " + maxCqi);
+                  tvCqiQual.setText("Quality: " + SignalInterpreter.lteCqiGrade(rawCqi));
               }
           }
           EOF
@@ -718,7 +812,9 @@ jobs:
             settings.gradle build.gradle gradle.properties .gitignore \
             app/build.gradle app/src/main/AndroidManifest.xml \
             app/src/main/res/values/colors.xml \
-            app/src/main/res/drawable/card_bg.xml \
+            app/src/main/res/drawable/card_outer.xml \
+            app/src/main/res/drawable/chart_inner_bg.xml \
+            app/src/main/res/drawable/stats_inner_bg.xml \
             app/src/main/res/layout/activity_onboarding.xml \
             app/src/main/res/layout/activity_main.xml \
             app/src/main/java/com/example/signaldeep/SignalLogger.java \
