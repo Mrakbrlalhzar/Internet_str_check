@@ -89,8 +89,8 @@ jobs:
                   applicationId "com.example.signaldeep"
                   minSdk 26
                   targetSdk 34
-                  versionCode 5
-                  versionName "2.1"
+                  versionCode 6
+                  versionName "2.2"
                   externalNativeBuild { cmake { cppFlags "-std=c++17" } }
                   ndk { abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64' }
               }
@@ -237,7 +237,7 @@ jobs:
                       <TextView android:text="Used to detect which app is currently in the foreground." android:textSize="14sp" android:textColor="@color/text_secondary" android:layout_marginTop="4dp" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
                   </LinearLayout>
                   <com.google.android.material.button.MaterialButton android:id="@+id/btn_lets_go"
-                      android:text="Let's Go & Grant Permissions" android:textSize="16sp"
+                      android:text="Let's Go &amp; Grant Permissions" android:textSize="16sp"
                       android:layout_width="match_parent" android:layout_height="60dp" />
               </LinearLayout>
           </ScrollView>
@@ -411,9 +411,9 @@ jobs:
                   return "NO DATA";
               }
               public static int colorForRsrp(int v) {
-                  if (v >= -90) return 0xFF4CAF50; // Green
-                  if (v >= -105) return 0xFFFFC107; // Yellow
-                  return 0xFFF44336; // Red
+                  if (v >= -90) return 0xFF4CAF50;
+                  if (v >= -105) return 0xFFFFC107;
+                  return 0xFFF44336;
               }
               public static int colorForRsrq(int v) {
                   if (v >= -15) return 0xFF4CAF50;
@@ -444,7 +444,7 @@ jobs:
           import android.view.View;
 
           public class BarChartView extends View {
-              private float[] values = new float[40]; // Number of bars
+              private float[] values = new float[40];
               private int[] colors = new int[40];
               private Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
               private int barColor = 0xFF4CAF50;
@@ -457,12 +457,9 @@ jobs:
                   }
               }
 
-              public void setBarColor(int color) {
-                  this.barColor = color;
-              }
+              public void setBarColor(int color) { this.barColor = color; }
 
               public void addValue(float value, int color) {
-                  // Shift array left
                   for (int i = 0; i < values.length - 1; i++) {
                       values[i] = values[i + 1];
                       colors[i] = colors[i + 1];
@@ -476,13 +473,11 @@ jobs:
               protected void onDraw(Canvas canvas) {
                   super.onDraw(canvas);
                   if (values.length == 0) return;
-
                   float width = getWidth();
                   float height = getHeight();
                   float barWidth = width / values.length;
-                  float spacing = 2f; // Space between bars
+                  float spacing = 2f;
 
-                  // Draw background grid
                   paint.setColor(0xFF2A2A3A);
                   paint.setStrokeWidth(1f);
                   for (int i = 0; i < 4; i++) {
@@ -490,7 +485,6 @@ jobs:
                       canvas.drawLine(0, y, width, y, paint);
                   }
 
-                  // Draw bars
                   for (int i = 0; i < values.length; i++) {
                       paint.setColor(colors[i]);
                       float left = i * barWidth;
@@ -534,14 +528,12 @@ jobs:
                   SharedPreferences prefs = getSharedPreferences("app_prefs", MODE_PRIVATE);
                   boolean isFirst = prefs.getBoolean("is_first_launch", true);
 
-                  // اگر اولین بار نیست و همه دسترسی‌ها هنوز فعال هستند، مستقیم برو به برنامه اصلی
                   if (!isFirst && checkAllPermissions()) {
                       startActivity(new Intent(this, MainActivity.class));
                       finish();
                       return;
                   }
 
-                  // در غیر این صورت (یا اولین بار است یا دسترسی گرفته شده) صفحه راهنما را نشان بده
                   setContentView(R.layout.activity_onboarding);
                   btnLetsGo = findViewById(R.id.btn_lets_go);
                   btnLetsGo.setOnClickListener(v -> requestPermissions());
@@ -625,17 +617,14 @@ jobs:
               private TextView tvRsrp, tvRsrq, tvSinr, tvCqi;
               private BarChartView chartRsrp, chartRsrq, chartSinr, chartCqi;
 
-              // Target values from actual hardware
               private float targetRsrp = 0f, targetRsrq = 0f, targetSinr = 0f, targetCqi = 0f;
               private int colorRsrp = 0xFF4CAF50, colorRsrq = 0xFF4CAF50, colorSinr = 0xFF4CAF50, colorCqi = 0xFF4CAF50;
               private int rawRsrp = -140, rawRsrq = -20, rawSinr = 0, rawCqi = 0;
 
-              // Current values shown on charts (interpolated)
               private float currentRsrp = 0f, currentRsrq = 0f, currentSinr = 0f, currentCqi = 0f;
 
               private final Runnable animTicker = new Runnable() {
                   @Override public void run() {
-                      // Smooth interpolation (10% step)
                       currentRsrp += (targetRsrp - currentRsrp) * 0.1f;
                       currentRsrq += (targetRsrq - currentRsrq) * 0.1f;
                       currentSinr += (targetSinr - currentSinr) * 0.1f;
@@ -646,14 +635,14 @@ jobs:
                       chartSinr.addValue(currentSinr, colorSinr);
                       chartCqi.addValue(currentCqi, colorCqi);
 
-                      animHandler.postDelayed(this, 100); // Move chart every 100ms
+                      animHandler.postDelayed(this, 100);
                   }
               };
 
               private final Runnable textUpdater = new Runnable() {
                   @Override public void run() {
                       updateTextViews();
-                      dataHandler.postDelayed(this, 3000); // Update text every 3s
+                      dataHandler.postDelayed(this, 3000);
                   }
               };
 
@@ -681,14 +670,12 @@ jobs:
                           .setPositiveButton("OK", null).show();
                   });
 
-                  // Setup PhoneStateListener
                   phoneStateListener = new PhoneStateListener() {
                       @Override
                       public void onCellInfoChanged(List<CellInfo> cellInfo) {
                           super.onCellInfoChanged(cellInfo);
-                          fetchSignalData(); // Fetch immediately when system reports a change
+                          fetchSignalData();
                       }
-
                       @Override
                       public void onSignalStrengthsChanged(SignalStrength signalStrength) {
                           super.onSignalStrengthsChanged(signalStrength);
@@ -702,19 +689,16 @@ jobs:
                   super.onStart();
                   if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED &&
                       ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED) {
-                      // Register listener
                       tm.listen(phoneStateListener, PhoneStateListener.LISTEN_CELL_INFO | PhoneStateListener.LISTEN_SIGNAL_STRENGTHS);
                   }
-                  // Start UI loops
                   animHandler.post(animTicker);
                   dataHandler.post(textUpdater);
-                  fetchSignalData(); // Initial fetch
+                  fetchSignalData();
               }
 
               @Override
               protected void onStop() {
                   super.onStop();
-                  // Stop everything when app is in background
                   tm.listen(phoneStateListener, PhoneStateListener.LISTEN_NONE);
                   animHandler.removeCallbacks(animTicker);
                   dataHandler.removeCallbacks(textUpdater);
@@ -723,7 +707,6 @@ jobs:
 
               private void fetchSignalData() {
                   if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) return;
-
                   try {
                       List<CellInfo> infos = tm.getAllCellInfo();
                       if (infos != null) {
@@ -731,13 +714,11 @@ jobs:
                               if (ci instanceof CellInfoLte) {
                                   CellInfoLte c = (CellInfoLte) ci;
                                   CellSignalStrengthLte sig = c.getCellSignalStrength();
-
                                   rawRsrp = sig.getRsrp();
                                   rawRsrq = sig.getRsrq();
                                   rawSinr = sig.getRssnr();
                                   rawCqi = (Build.VERSION.SDK_INT >= 26) ? sig.getCqi() : 0;
 
-                                  // Map to 0..1 for chart target
                                   targetRsrp = Math.max(0, Math.min(1, (rawRsrp + 140f) / 60f));
                                   targetRsrq = Math.max(0, Math.min(1, (rawRsrq + 20f) / 15f));
                                   targetSinr = Math.max(0, Math.min(1, (rawSinr + 10f) / 35f));
