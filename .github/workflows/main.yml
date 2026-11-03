@@ -56,7 +56,10 @@ jobs:
       - name: Create project files
         run: |
           set -e
-          rm -rf app/src/main/java/com/example/signaldeep
+          # 🚨 پاک کردن کامل پوشه‌های قدیمی جاوا و منابع (res) برای جلوگیری از تداخل 🚨
+          rm -rf app/src/main/java
+          rm -rf app/src/main/res
+          
           mkdir -p app/src/main/java/com/example/signaldeep
           mkdir -p app/src/main/res/layout app/src/main/res/values app/src/main/res/drawable
 
@@ -88,8 +91,8 @@ jobs:
                   applicationId "com.example.signaldeep"
                   minSdk 26
                   targetSdk 34
-                  versionCode 12
-                  versionName "3.1"
+                  versionCode 13
+                  versionName "3.2"
               }
               buildTypes { release { minifyEnabled false } }
               compileOptions {
@@ -142,6 +145,7 @@ jobs:
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
               <color name="bg_main">#E0E0E0</color>
+              <color name="card_bg">#D0D0D0</color>
               <color name="chart_bg">#1E1E1E</color>
               <color name="stats_bg">#F5F5F5</color>
               <color name="text_dark">#212121</color>
@@ -156,7 +160,7 @@ jobs:
           cat > app/src/main/res/drawable/card_outer.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <shape xmlns:android="http://schemas.android.com/apk/res/android">
-              <solid android:color="#D0D0D0" />
+              <solid android:color="@color/card_bg" />
               <corners android:radius="24dp" />
               <stroke android:width="2dp" android:color="#BDBDBD" />
           </shape>
@@ -689,19 +693,15 @@ jobs:
                   chartCqi = findViewById(R.id.chart_cqi);
 
                   // Set actual valid ranges for LTE parameters based on 3GPP / Android docs
-                  // RSRP: -140 to -43 dBm
                   chartRsrp.setYRange(-140, -43);
                   chartRsrp.setThresholds(-90, -105); // Green at -90, Orange at -105
 
-                  // RSRQ: -20 to -3 dB
                   chartRsrq.setYRange(-20, -3);
                   chartRsrq.setThresholds(-15, -20); // Green at -15, Orange at -20
 
-                  // SINR: -20 to +30 dB
                   chartSinr.setYRange(-20, 30);
                   chartSinr.setThresholds(13, 0); // Green at 13, Orange at 0
 
-                  // CQI: 0 to 15
                   chartCqi.setYRange(0, 15);
                   chartCqi.setThresholds(10, 4); // Green at 10, Orange at 4
 
