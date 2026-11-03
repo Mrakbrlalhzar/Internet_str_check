@@ -10,4 +10,10 @@
     <color name="green">#4CAF50</color>
     <color name="orange">#FF9800</color>
     <color name="red">#F44336</color>
+    <!-- Background status colors -->
+    <color name="bg_excellent">#1B5E20</color>
+    <color name="bg_good">#388E3C</color>
+    <color name="bg_fair">#F57C00</color>
+    <color name="bg_poor">#E64A19</color>
+    <color name="bg_critical">#B71C1C</color>
 </resources>

@@ -8,7 +8,7 @@ import android.util.AttributeSet;
 import android.view.View;
 
 public class BarChartView extends View {
-    private float[] values = new float[60]; // 60 bars = 6 seconds of history at 100ms
+    private float[] values = new float[60];
     private int[] colors = new int[60];
     private Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private Paint gridPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -56,7 +56,6 @@ public class BarChartView extends View {
         float chartWidth = width - paddingLeft;
         float chartHeight = height - paddingBottom;
 
-        // Draw Y-axis labels and horizontal grid lines
         textPaint.setTextAlign(Paint.Align.RIGHT);
         float step = (maxY - minY) / 3f;
         for (int i = 0; i <= 3; i++) {
@@ -66,20 +65,18 @@ public class BarChartView extends View {
             canvas.drawText(String.valueOf((int)val), paddingLeft - 8, y + 8, textPaint);
         }
 
-        // Draw Threshold Lines
-        thresholdPaint.setColor(0xFF4CAF50); // Green (Good)
+        thresholdPaint.setColor(0xFF4CAF50);
         float yGood = chartHeight - ((threshGood - minY) / (maxY - minY) * chartHeight);
         if (yGood >= 0 && yGood <= chartHeight) {
             canvas.drawLine(paddingLeft, yGood, width, yGood, thresholdPaint);
         }
 
-        thresholdPaint.setColor(0xFFFF9800); // Orange (Fair)
+        thresholdPaint.setColor(0xFFFF9800);
         float yFair = chartHeight - ((threshFair - minY) / (maxY - minY) * chartHeight);
         if (yFair >= 0 && yFair <= chartHeight) {
             canvas.drawLine(paddingLeft, yFair, width, yFair, thresholdPaint);
         }
 
-        // Draw Bars
         float barWidth = chartWidth / values.length;
         for (int i = 0; i < values.length; i++) {
             paint.setColor(colors[i]);
