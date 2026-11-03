@@ -27,7 +27,7 @@ jobs:
           accept-android-sdk-licenses: true
       - name: Install SDK packages
         run: |
-          sdkmanager --install "platforms;android-34" "build-tools;34.0.0" "ndk;26.1.10909125" "cmake;3.22.1"
+          sdkmanager --install "platforms;android-34" "build-tools;34.0.0"
           yes | sdkmanager --licenses || true
       - name: Install Gradle 8.7
         run: |
@@ -58,7 +58,6 @@ jobs:
           set -e
           mkdir -p app/src/main/java/com/example/signaldeep
           mkdir -p app/src/main/res/layout app/src/main/res/values app/src/main/res/drawable
-          mkdir -p app/src/main/cpp
 
           cat > .gitignore << 'EOF'
           build/
@@ -84,17 +83,13 @@ jobs:
           android {
               namespace 'com.example.signaldeep'
               compileSdk 34
-              ndkVersion "26.1.10909125"
               defaultConfig {
                   applicationId "com.example.signaldeep"
                   minSdk 26
                   targetSdk 34
-                  versionCode 6
-                  versionName "2.2"
-                  externalNativeBuild { cmake { cppFlags "-std=c++17" } }
-                  ndk { abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64' }
+                  versionCode 7
+                  versionName "2.3"
               }
-              externalNativeBuild { cmake { path "src/main/cpp/CMakeLists.txt"; version "3.22.1" } }
               buildTypes { release { minifyEnabled false } }
               compileOptions {
                   sourceCompatibility JavaVersion.VERSION_17
@@ -114,37 +109,6 @@ jobs:
           }
           EOF
 
-          cat > app/src/main/cpp/CMakeLists.txt << 'EOF'
-          cmake_minimum_required(VERSION 3.22.1)
-          project("signaldeep")
-          add_library(native-lib SHARED native-lib.cpp)
-          find_library(log-lib log)
-          target_link_libraries(native-lib ${log-lib})
-          EOF
-
-          cat > app/src/main/cpp/native-lib.cpp << 'EOF'
-          #include <jni.h>
-          #include <string>
-          #include <cmath>
-          #include <android/log.h>
-          #define LOG_TAG "SignalNative"
-          #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
-          static double clamp01(double v) { return v < 0 ? 0 : (v > 1 ? 1 : v); }
-          extern "C" JNIEXPORT jstring JNICALL
-          Java_com_example_signaldeep_MainActivity_stringFromNative(JNIEnv* env, jobject) {
-              return env->NewStringUTF("Native layer active (C++17)");
-          }
-          extern "C" JNIEXPORT jint JNICALL
-          Java_com_example_signaldeep_MainActivity_nativeLteScore(
-                  JNIEnv*, jobject, jint rsrp, jint rsrq, jint sinr, jint cqi) {
-              double qR = clamp01((rsrp + 130.0) / 50.0);
-              double qQ = clamp01((rsrq + 20.0)  / 10.0);
-              double qS = clamp01( sinr        / 20.0);
-              double qC = (cqi >= 0) ? clamp01(cqi / 15.0) : 0.0;
-              return (jint)std::lround(100.0 * (0.35*qR + 0.25*qQ + 0.25*qS + 0.15*qC));
-          }
-          EOF
-
           cat > app/src/main/AndroidManifest.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android"
@@ -160,7 +124,7 @@ jobs:
               <application
                   android:name=".SignalDeepApp"
                   android:allowBackup="true"
-                  android:label="@string/app_name"
+                  android:label="SignalDeep"
                   android:theme="@style/Theme.Material3.DayNight.NoActionBar">
                   <activity android:name=".OnboardingActivity" android:exported="true">
                       <intent-filter>
@@ -171,10 +135,6 @@ jobs:
                   <activity android:name=".MainActivity" android:exported="false" />
               </application>
           </manifest>
-          EOF
-
-          cat > app/src/main/res/values/strings.xml << 'EOF'
-          <resources><string name="app_name">SignalDeep</string></resources>
           EOF
 
           cat > app/src/main/res/values/colors.xml << 'EOF'
@@ -283,6 +243,25 @@ jobs:
           </ScrollView>
           EOF
 
+          cat > app/src/main/java/com/example/signaldeep/SignalDeepApp.java << 'EOF'
+          package com.example.signaldeep;
+
+          import android.app.Application;
+
+          public class SignalDeepApp extends Application {
+              @Override public void onCreate() {
+                  super.onCreate();
+                  SignalLogger.init(this);
+                  final Thread.UncaughtExceptionHandler prev = Thread.getDefaultUncaughtExceptionHandler();
+                  Thread.setDefaultUncaughtExceptionHandler((t, e) -> {
+                      try { SignalLogger.crash(e); } catch (Throwable ignored) {}
+                      if (prev != null) prev.uncaughtException(t, e);
+                  });
+                  SignalLogger.log("App", "onCreate — SignalDeep started");
+              }
+          }
+          EOF
+
           cat > app/src/main/java/com/example/signaldeep/SignalLogger.java << 'EOF'
           package com.example.signaldeep;
 
@@ -359,25 +338,6 @@ jobs:
           }
           EOF
 
-          cat > app/src/main/java/com/example/signaldeep/SignalDeepApp.java << 'EOF'
-          package com.example.signaldeep;
-
-          import android.app.Application;
-
-          public class SignalDeepApp extends Application {
-              @Override public void onCreate() {
-                  super.onCreate();
-                  SignalLogger.init(this);
-                  final Thread.UncaughtExceptionHandler prev = Thread.getDefaultUncaughtExceptionHandler();
-                  Thread.setDefaultUncaughtExceptionHandler((t, e) -> {
-                      try { SignalLogger.crash(e); } catch (Throwable ignored) {}
-                      if (prev != null) prev.uncaughtException(t, e);
-                  });
-                  SignalLogger.log("App", "onCreate — SignalDeep started");
-              }
-          }
-          EOF
-
           cat > app/src/main/java/com/example/signaldeep/SignalInterpreter.java << 'EOF'
           package com.example.signaldeep;
 
@@ -438,7 +398,6 @@ jobs:
 
           import android.content.Context;
           import android.graphics.Canvas;
-          import android.graphics.Color;
           import android.graphics.Paint;
           import android.util.AttributeSet;
           import android.view.View;
@@ -754,7 +713,6 @@ jobs:
           for f in \
             settings.gradle build.gradle gradle.properties .gitignore \
             app/build.gradle app/src/main/AndroidManifest.xml \
-            app/src/main/res/values/strings.xml \
             app/src/main/res/values/colors.xml \
             app/src/main/res/drawable/card_bg.xml \
             app/src/main/res/layout/activity_onboarding.xml \
@@ -764,8 +722,7 @@ jobs:
             app/src/main/java/com/example/signaldeep/SignalInterpreter.java \
             app/src/main/java/com/example/signaldeep/BarChartView.java \
             app/src/main/java/com/example/signaldeep/OnboardingActivity.java \
-            app/src/main/java/com/example/signaldeep/MainActivity.java \
-            app/src/main/cpp/CMakeLists.txt app/src/main/cpp/native-lib.cpp ; do
+            app/src/main/java/com/example/signaldeep/MainActivity.java ; do
             [ -f "$f" ] && echo "OK: $f" || { echo "MISSING: $f"; exit 1; }
           done
 
