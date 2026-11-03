@@ -57,7 +57,7 @@ jobs:
         run: |
           set -e
           mkdir -p app/src/main/java/com/example/signaldeep
-          mkdir -p app/src/main/res/layout app/src/main/res/values
+          mkdir -p app/src/main/res/layout app/src/main/res/values app/src/main/res/drawable
           mkdir -p app/src/main/cpp
 
           cat > .gitignore << 'EOF'
@@ -89,8 +89,8 @@ jobs:
                   applicationId "com.example.signaldeep"
                   minSdk 26
                   targetSdk 34
-                  versionCode 3
-                  versionName "1.2"
+                  versionCode 5
+                  versionName "2.1"
                   externalNativeBuild { cmake { cppFlags "-std=c++17" } }
                   ndk { abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64' }
               }
@@ -143,14 +143,6 @@ jobs:
               double qC = (cqi >= 0) ? clamp01(cqi / 15.0) : 0.0;
               return (jint)std::lround(100.0 * (0.35*qR + 0.25*qQ + 0.25*qS + 0.15*qC));
           }
-          extern "C" JNIEXPORT jint JNICALL
-          Java_com_example_signaldeep_MainActivity_nativeWcdmaScore(
-                  JNIEnv*, jobject, jint dbm, jint ecno, jboolean hasEcno) {
-              double qP = clamp01((dbm + 110.0) / 40.0);
-              if (!hasEcno) return (jint)std::lround(100.0 * qP);
-              double qE = clamp01((ecno + 12.0) / 8.0);
-              return (jint)std::lround(100.0 * (0.6*qP + 0.4*qE));
-          }
           EOF
 
           cat > app/src/main/AndroidManifest.xml << 'EOF'
@@ -162,10 +154,7 @@ jobs:
               <uses-permission android:name="android.permission.READ_PHONE_STATE" />
               <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
               <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
-              <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-              <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-              <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
-                  android:maxSdkVersion="28" />
+              <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
               <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
                   tools:ignore="ProtectedPermissions" />
               <application
@@ -173,14 +162,13 @@ jobs:
                   android:allowBackup="true"
                   android:label="@string/app_name"
                   android:theme="@style/Theme.Material3.DayNight.NoActionBar">
-                  <activity android:name=".MainActivity" android:exported="true">
+                  <activity android:name=".OnboardingActivity" android:exported="true">
                       <intent-filter>
                           <action android:name="android.intent.action.MAIN" />
                           <category android:name="android.intent.category.LAUNCHER" />
                       </intent-filter>
                   </activity>
-                  <activity android:name=".CorrelationActivity" android:exported="false" />
-                  <service android:name=".SignalSamplingService" />
+                  <activity android:name=".MainActivity" android:exported="false" />
               </application>
           </manifest>
           EOF
@@ -197,6 +185,7 @@ jobs:
               <color name="fair">#FFC107</color>
               <color name="poor">#FF9800</color>
               <color name="very_poor">#F44336</color>
+              <color name="bg_dark">#121212</color>
               <color name="card_bg">#1E1E2E</color>
               <color name="text_primary">#E0E0E0</color>
               <color name="text_secondary">#9E9E9E</color>
@@ -204,86 +193,94 @@ jobs:
           </resources>
           EOF
 
-          cat > app/src/main/res/layout/activity_main.xml << 'EOF'
+          cat > app/src/main/res/drawable/card_bg.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <shape xmlns:android="http://schemas.android.com/apk/res/android">
+              <solid android:color="@color/card_bg" />
+              <corners android:radius="16dp" />
+              <stroke android:width="1dp" android:color="#333333" />
+          </shape>
+          EOF
+
+          cat > app/src/main/res/layout/activity_onboarding.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
-              xmlns:app="http://schemas.android.com/apk/res-auto"
-              android:layout_width="match_parent"
-              android:layout_height="match_parent"
-              android:background="#121212">
-              <LinearLayout
-                  android:orientation="vertical"
-                  android:padding="16dp"
-                  android:layout_width="match_parent"
-                  android:layout_height="wrap_content">
-
-                  <TextView
-                      android:text="SignalDeep"
-                      android:textSize="28sp"
-                      android:textStyle="bold"
-                      android:textColor="@color/accent"
-                      android:layout_width="wrap_content"
-                      android:layout_height="wrap_content" />
-
-                  <TextView
-                      android:text="Advanced LTE Signal Analyzer"
-                      android:textSize="14sp"
-                      android:textColor="@color/text_secondary"
-                      android:layout_marginBottom="16dp"
-                      android:layout_width="wrap_content"
-                      android:layout_height="wrap_content" />
-
-                  <com.google.android.material.button.MaterialButton
-                      android:id="@+id/btn_perms"
-                      android:text="Grant Permissions"
-                      android:layout_width="match_parent"
-                      android:layout_height="wrap_content" />
-                  <com.google.android.material.button.MaterialButton
-                      android:id="@+id/btn_usage"
-                      android:text="Grant Usage Access"
-                      android:layout_width="match_parent"
-                      android:layout_height="wrap_content" />
-                  <com.google.android.material.button.MaterialButton
-                      android:id="@+id/btn_start"
-                      android:text="Start Sampling"
-                      android:layout_width="match_parent"
-                      android:layout_height="wrap_content" />
-                  <com.google.android.material.button.MaterialButton
-                      android:id="@+id/btn_stop"
-                      android:text="Stop Sampling"
-                      android:layout_width="match_parent"
-                      android:layout_height="wrap_content" />
-                  <com.google.android.material.button.MaterialButton
-                      android:id="@+id/btn_history"
-                      android:text="View History"
-                      android:layout_width="match_parent"
-                      android:layout_height="wrap_content" />
-                  <com.google.android.material.button.MaterialButton
-                      android:id="@+id/btn_loginfo"
-                      android:text="Where is log file?"
-                      android:layout_width="match_parent"
-                      android:layout_height="wrap_content" />
-
-                  <TextView
-                      android:id="@+id/tv_signal"
-                      android:textSize="14sp"
-                      android:textColor="@color/text_primary"
-                      android:fontFamily="monospace"
-                      android:layout_marginTop="16dp"
-                      android:layout_width="match_parent"
-                      android:layout_height="wrap_content" />
+              android:layout_width="match_parent" android:layout_height="match_parent"
+              android:background="@color/bg_dark" android:fillViewport="true">
+              <LinearLayout android:orientation="vertical" android:padding="24dp"
+                  android:layout_width="match_parent" android:layout_height="wrap_content"
+                  android:gravity="center_horizontal">
+                  <TextView android:text="Welcome to SignalDeep" android:textSize="28sp"
+                      android:textStyle="bold" android:textColor="@color/accent"
+                      android:layout_marginTop="32dp" android:layout_marginBottom="8dp"
+                      android:layout_width="wrap_content" android:layout_height="wrap_content" />
+                  <TextView android:text="To analyze your network deeply, we need a few permissions."
+                      android:textSize="16sp" android:textColor="@color/text_secondary"
+                      android:gravity="center" android:layout_marginBottom="32dp"
+                      android:layout_width="match_parent" android:layout_height="wrap_content" />
+                  <LinearLayout android:orientation="vertical" android:background="@drawable/card_bg"
+                      android:padding="16dp" android:layout_marginBottom="16dp"
+                      android:layout_width="match_parent" android:layout_height="wrap_content">
+                      <TextView android:text="📍 Location" android:textSize="18sp" android:textStyle="bold" android:textColor="@color/text_primary" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                      <TextView android:text="Required by Android to access cellular and Wi-Fi network info. We do NOT track your location." android:textSize="14sp" android:textColor="@color/text_secondary" android:layout_marginTop="4dp" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                  </LinearLayout>
+                  <LinearLayout android:orientation="vertical" android:background="@drawable/card_bg"
+                      android:padding="16dp" android:layout_marginBottom="16dp"
+                      android:layout_width="match_parent" android:layout_height="wrap_content">
+                      <TextView android:text="📞 Phone State" android:textSize="18sp" android:textStyle="bold" android:textColor="@color/text_primary" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                      <TextView android:text="Needed to read the active network type and signal parameters." android:textSize="14sp" android:textColor="@color/text_secondary" android:layout_marginTop="4dp" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                  </LinearLayout>
+                  <LinearLayout android:orientation="vertical" android:background="@drawable/card_bg"
+                      android:padding="16dp" android:layout_marginBottom="32dp"
+                      android:layout_width="match_parent" android:layout_height="wrap_content">
+                      <TextView android:text="📊 Usage Access" android:textSize="18sp" android:textStyle="bold" android:textColor="@color/text_primary" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                      <TextView android:text="Used to detect which app is currently in the foreground." android:textSize="14sp" android:textColor="@color/text_secondary" android:layout_marginTop="4dp" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                  </LinearLayout>
+                  <com.google.android.material.button.MaterialButton android:id="@+id/btn_lets_go"
+                      android:text="Let's Go & Grant Permissions" android:textSize="16sp"
+                      android:layout_width="match_parent" android:layout_height="60dp" />
               </LinearLayout>
           </ScrollView>
           EOF
 
-          cat > app/src/main/res/layout/activity_correlation.xml << 'EOF'
+          cat > app/src/main/res/layout/activity_main.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
-          <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-              android:orientation="vertical" android:padding="8dp"
-              android:layout_width="match_parent" android:layout_height="match_parent">
-              <ListView android:id="@+id/list" android:layout_width="match_parent"
-                  android:layout_height="match_parent" />
-          </LinearLayout>
+          <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+              android:layout_width="match_parent" android:layout_height="match_parent"
+              android:background="@color/bg_dark">
+              <LinearLayout android:orientation="vertical" android:padding="16dp"
+                  android:layout_width="match_parent" android:layout_height="wrap_content">
+                  <TextView android:text="Live Signal Metrics" android:textSize="24sp"
+                      android:textStyle="bold" android:textColor="@color/accent"
+                      android:layout_marginBottom="16dp" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+
+                  <LinearLayout android:orientation="vertical" android:background="@drawable/card_bg" android:padding="16dp" android:layout_marginBottom="16dp" android:layout_width="match_parent" android:layout_height="wrap_content">
+                      <TextView android:id="@+id/tv_rsrp_val" android:text="RSRP: -- dBm" android:textSize="20sp" android:textStyle="bold" android:textColor="@color/text_primary" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                      <com.example.signaldeep.BarChartView android:id="@+id/chart_rsrp" android:layout_width="match_parent" android:layout_height="100dp" android:layout_marginTop="12dp" android:layout_marginBottom="12dp"/>
+                      <TextView android:text="RSRP: Indicates the raw power of the LTE signal. Higher is better." android:textSize="12sp" android:textColor="@color/text_secondary" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                  </LinearLayout>
+
+                  <LinearLayout android:orientation="vertical" android:background="@drawable/card_bg" android:padding="16dp" android:layout_marginBottom="16dp" android:layout_width="match_parent" android:layout_height="wrap_content">
+                      <TextView android:id="@+id/tv_rsrq_val" android:text="RSRQ: -- dB" android:textSize="20sp" android:textStyle="bold" android:textColor="@color/text_primary" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                      <com.example.signaldeep.BarChartView android:id="@+id/chart_rsrq" android:layout_width="match_parent" android:layout_height="100dp" android:layout_marginTop="12dp" android:layout_marginBottom="12dp"/>
+                      <TextView android:text="RSRQ: Indicates signal quality and interference. Higher is better." android:textSize="12sp" android:textColor="@color/text_secondary" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                  </LinearLayout>
+
+                  <LinearLayout android:orientation="vertical" android:background="@drawable/card_bg" android:padding="16dp" android:layout_marginBottom="16dp" android:layout_width="match_parent" android:layout_height="wrap_content">
+                      <TextView android:id="@+id/tv_sinr_val" android:text="SINR: --" android:textSize="20sp" android:textStyle="bold" android:textColor="@color/text_primary" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                      <com.example.signaldeep.BarChartView android:id="@+id/chart_sinr" android:layout_width="match_parent" android:layout_height="100dp" android:layout_marginTop="12dp" android:layout_marginBottom="12dp"/>
+                      <TextView android:text="SINR: The most important metric for data speed. Higher is better." android:textSize="12sp" android:textColor="@color/text_secondary" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                  </LinearLayout>
+
+                  <LinearLayout android:orientation="vertical" android:background="@drawable/card_bg" android:padding="16dp" android:layout_marginBottom="16dp" android:layout_width="match_parent" android:layout_height="wrap_content">
+                      <TextView android:id="@+id/tv_cqi_val" android:text="CQI: --" android:textSize="20sp" android:textStyle="bold" android:textColor="@color/text_primary" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                      <com.example.signaldeep.BarChartView android:id="@+id/chart_cqi" android:layout_width="match_parent" android:layout_height="100dp" android:layout_marginTop="12dp" android:layout_marginBottom="12dp"/>
+                      <TextView android:text="CQI: Reports the modulation scheme the network can use. Range 0-15. Higher is better." android:textSize="12sp" android:textColor="@color/text_secondary" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                  </LinearLayout>
+
+                  <com.google.android.material.button.MaterialButton android:id="@+id/btn_loginfo" android:text="Where is log file?" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" />
+              </LinearLayout>
+          </ScrollView>
           EOF
 
           cat > app/src/main/java/com/example/signaldeep/SignalLogger.java << 'EOF'
@@ -308,8 +305,7 @@ jobs:
               private static final String FILE_NAME = "signaldeep_log.txt";
               private static final long MAX_SIZE = 2 * 1024 * 1024;
               private static final Object LOCK = new Object();
-              private static final SimpleDateFormat TS =
-                  new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US);
+              private static final SimpleDateFormat TS = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US);
               private static Context appCtx;
               public static void init(Context c) { appCtx = c.getApplicationContext(); }
 
@@ -317,12 +313,9 @@ jobs:
                   if (appCtx == null) return null;
                   if (Build.VERSION.SDK_INT <= 28) {
                       try {
-                          if (appCtx.checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)
-                                  == PackageManager.PERMISSION_GRANTED) {
-                              File dir = Environment.getExternalStoragePublicDirectory(
-                                  Environment.DIRECTORY_DOWNLOADS);
-                              if (dir != null && (dir.exists() || dir.mkdirs()))
-                                  return new File(dir, FILE_NAME);
+                          if (appCtx.checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
+                              File dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+                              if (dir != null && (dir.exists() || dir.mkdirs())) return new File(dir, FILE_NAME);
                           }
                       } catch (Throwable t) { Log.w(TAG, "pub dir", t); }
                   }
@@ -417,333 +410,188 @@ jobs:
                   if (v >= 1)  return "POOR";
                   return "NO DATA";
               }
-              public static String wcdmaDbmGrade(int v) {
-                  if (v >= -70)  return "EXCELLENT";
-                  if (v >= -85)  return "GOOD";
-                  if (v >= -100) return "FAIR";
-                  if (v >= -110) return "POOR";
-                  return "NO SIGNAL";
+              public static int colorForRsrp(int v) {
+                  if (v >= -90) return 0xFF4CAF50; // Green
+                  if (v >= -105) return 0xFFFFC107; // Yellow
+                  return 0xFFF44336; // Red
               }
-              public static String wcdmaEcnoGrade(int v) {
-                  if (v >= -4)  return "EXCELLENT";
-                  if (v >= -8)  return "GOOD";
-                  if (v >= -12) return "FAIR";
-                  return "POOR";
+              public static int colorForRsrq(int v) {
+                  if (v >= -15) return 0xFF4CAF50;
+                  if (v >= -20) return 0xFFFFC107;
+                  return 0xFFF44336;
               }
-              public static String gsmDbmGrade(int v) {
-                  if (v >= -75)  return "EXCELLENT";
-                  if (v >= -85)  return "GOOD";
-                  if (v >= -95)  return "FAIR";
-                  if (v >= -105) return "POOR";
-                  return "NO SIGNAL";
+              public static int colorForSinr(int v) {
+                  if (v >= 13) return 0xFF4CAF50;
+                  if (v >= 0) return 0xFFFFC107;
+                  return 0xFFF44336;
               }
-              public static String scoreToGrade(int s) {
-                  if (s >= 85) return "EXCELLENT";
-                  if (s >= 65) return "GOOD";
-                  if (s >= 40) return "FAIR";
-                  if (s >= 20) return "POOR";
-                  return "VERY POOR";
-              }
-              public static String bars(int lvl) {
-                  switch (lvl) {
-                      case 0: return "[    ]";
-                      case 1: return "[|   ]";
-                      case 2: return "[||  ]";
-                      case 3: return "[||| ]";
-                      case 4: return "[||||]";
-                      default: return "[????]";
-                  }
-              }
-              public static String networkName(int t) {
-                  switch (t) {
-                      case 1: return "GPRS (2G)"; case 2: return "EDGE (2G)";
-                      case 3: return "UMTS (3G)"; case 4: return "CDMA (2G)";
-                      case 5: return "EVDO_0 (3G)"; case 6: return "EVDO_A (3G)";
-                      case 7: return "1xRTT (2G)"; case 8: return "HSDPA (3G)";
-                      case 9: return "HSUPA (3G)"; case 10: return "HSPA (3G)";
-                      case 11: return "iDEN (2G)"; case 12: return "EVDO_B (3G)";
-                      case 13: return "LTE (4G)"; case 14: return "eHRPD (3G)";
-                      case 15: return "HSPAP (3G)"; case 16: return "GSM (2G)";
-                      case 17: return "TD-SCDMA (3G)"; case 18: return "IWLAN";
-                      case 19: return "LTE-CA (4G+)";
-                      default: return "UNKNOWN (" + t + ")";
-                  }
-              }
-              public static boolean isLte(int t) { return t == 13 || t == 19; }
-              public static boolean isWcdma(int t) {
-                  return t == 3 || t == 5 || t == 6 || t == 8 || t == 9 ||
-                         t == 10 || t == 12 || t == 14 || t == 15 || t == 17;
-              }
-              public static boolean isGsm(int t) {
-                  return t == 1 || t == 2 || t == 4 || t == 7 || t == 11 || t == 16;
+              public static int colorForCqi(int v) {
+                  if (v >= 10) return 0xFF4CAF50;
+                  if (v >= 4) return 0xFFFFC107;
+                  return 0xFFF44336;
               }
           }
           EOF
 
-          cat > app/src/main/java/com/example/signaldeep/SignalSample.java << 'EOF'
-          package com.example.signaldeep;
-          public class SignalSample {
-              public long timestamp;
-              public String networkType;
-              public int level, power, quality, sinr, cqi;
-              public int cellId, pci, areaCode, freqCode, mcc, mnc;
-              public int score;
-              public String grade;
-              public String fgApp;
-              public int wifiRssi;
-              public String wifiSsid;
-          }
-          EOF
-
-          cat > app/src/main/java/com/example/signaldeep/DatabaseHelper.java << 'EOF'
+          cat > app/src/main/java/com/example/signaldeep/BarChartView.java << 'EOF'
           package com.example.signaldeep;
 
-          import android.content.ContentValues;
           import android.content.Context;
-          import android.database.Cursor;
-          import android.database.sqlite.SQLiteDatabase;
-          import android.database.sqlite.SQLiteOpenHelper;
-          import java.text.SimpleDateFormat;
-          import java.util.ArrayList;
-          import java.util.Date;
-          import java.util.List;
-          import java.util.Locale;
+          import android.graphics.Canvas;
+          import android.graphics.Color;
+          import android.graphics.Paint;
+          import android.util.AttributeSet;
+          import android.view.View;
 
-          public class DatabaseHelper extends SQLiteOpenHelper {
-              public DatabaseHelper(Context c) { super(c, "signal.db", null, 3); }
-              @Override public void onCreate(SQLiteDatabase db) {
-                  db.execSQL("CREATE TABLE samples (" +
-                      "id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER, net TEXT, " +
-                      "lvl INTEGER, pw INTEGER, q INTEGER, sinr INTEGER, cqi INTEGER, " +
-                      "cid INTEGER, pci INTEGER, area INTEGER, freq INTEGER, " +
-                      "mcc INTEGER, mnc INTEGER, score INTEGER, grade TEXT, " +
-                      "fg TEXT, wrssi INTEGER, wssid TEXT)");
-              }
-              @Override public void onUpgrade(SQLiteDatabase db, int o, int n) {
-                  db.execSQL("DROP TABLE IF EXISTS samples"); onCreate(db);
-              }
-              public void insert(SignalSample s) {
-                  SQLiteDatabase db = getWritableDatabase();
-                  ContentValues v = new ContentValues();
-                  v.put("ts", s.timestamp); v.put("net", s.networkType);
-                  v.put("lvl", s.level); v.put("pw", s.power);
-                  v.put("q", s.quality); v.put("sinr", s.sinr); v.put("cqi", s.cqi);
-                  v.put("cid", s.cellId); v.put("pci", s.pci);
-                  v.put("area", s.areaCode); v.put("freq", s.freqCode);
-                  v.put("mcc", s.mcc); v.put("mnc", s.mnc);
-                  v.put("score", s.score); v.put("grade", s.grade);
-                  v.put("fg", s.fgApp);
-                  v.put("wrssi", s.wifiRssi); v.put("wssid", s.wifiSsid);
-                  db.insert("samples", null, v); db.close();
-              }
-              public List<String> getRecent(int n) {
-                  List<String> out = new ArrayList<>();
-                  SQLiteDatabase db = getReadableDatabase();
-                  Cursor c = db.rawQuery(
-                      "SELECT ts,net,lvl,pw,q,sinr,cqi,cid,pci,area,freq,score,grade,fg,wrssi " +
-                      "FROM samples ORDER BY ts DESC LIMIT " + n, null);
-                  SimpleDateFormat f = new SimpleDateFormat("HH:mm:ss", Locale.US);
-                  while (c.moveToNext()) {
-                      StringBuilder sb = new StringBuilder();
-                      sb.append(f.format(new Date(c.getLong(0)))).append("  ");
-                      sb.append(c.getString(1)).append("  ");
-                      sb.append(SignalInterpreter.bars(c.getInt(2))).append("\n");
-                      sb.append("   RSRP=").append(c.getInt(3)).append("dBm  ");
-                      sb.append("RSRQ=").append(c.getInt(4)).append("dB  ");
-                      sb.append("SINR=").append(c.getInt(5)).append("  ");
-                      sb.append("CQI=").append(c.getInt(6)).append("\n");
-                      sb.append("   Cell=").append(c.getInt(7));
-                      sb.append(" PCI=").append(c.getInt(8));
-                      sb.append(" TAC=").append(c.getInt(9));
-                      sb.append(" EARFCN=").append(c.getInt(10)).append("\n");
-                      sb.append("   SCORE=").append(c.getInt(11)).append("/100  ").append(c.getString(12)).append("\n");
-                      String fg = c.getString(13);
-                      if (fg != null && !fg.isEmpty()) sb.append("   FG: ").append(fg).append("\n");
-                      int wr = c.getInt(14);
-                      if (wr != 0 && wr > -127 && wr < 0) sb.append("   WiFi: ").append(wr).append("dBm\n");
-                      out.add(sb.toString());
+          public class BarChartView extends View {
+              private float[] values = new float[40]; // Number of bars
+              private int[] colors = new int[40];
+              private Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+              private int barColor = 0xFF4CAF50;
+
+              public BarChartView(Context context, AttributeSet attrs) {
+                  super(context, attrs);
+                  for (int i = 0; i < values.length; i++) {
+                      values[i] = 0;
+                      colors[i] = barColor;
                   }
-                  c.close(); db.close(); return out;
+              }
+
+              public void setBarColor(int color) {
+                  this.barColor = color;
+              }
+
+              public void addValue(float value, int color) {
+                  // Shift array left
+                  for (int i = 0; i < values.length - 1; i++) {
+                      values[i] = values[i + 1];
+                      colors[i] = colors[i + 1];
+                  }
+                  values[values.length - 1] = value;
+                  colors[colors.length - 1] = color;
+                  invalidate();
+              }
+
+              @Override
+              protected void onDraw(Canvas canvas) {
+                  super.onDraw(canvas);
+                  if (values.length == 0) return;
+
+                  float width = getWidth();
+                  float height = getHeight();
+                  float barWidth = width / values.length;
+                  float spacing = 2f; // Space between bars
+
+                  // Draw background grid
+                  paint.setColor(0xFF2A2A3A);
+                  paint.setStrokeWidth(1f);
+                  for (int i = 0; i < 4; i++) {
+                      float y = height - (height / 4f * i);
+                      canvas.drawLine(0, y, width, y, paint);
+                  }
+
+                  // Draw bars
+                  for (int i = 0; i < values.length; i++) {
+                      paint.setColor(colors[i]);
+                      float left = i * barWidth;
+                      float right = left + barWidth - spacing;
+                      float normalized = Math.max(0f, Math.min(1f, values[i]));
+                      float top = height - (normalized * (height - 10f));
+                      canvas.drawRect(left, top, right, height, paint);
+                  }
               }
           }
           EOF
 
-          cat > app/src/main/java/com/example/signaldeep/SignalSamplingService.java << 'EOF'
+          cat > app/src/main/java/com/example/signaldeep/OnboardingActivity.java << 'EOF'
           package com.example.signaldeep;
 
-          import android.app.Notification;
-          import android.app.NotificationChannel;
-          import android.app.NotificationManager;
-          import android.app.Service;
-          import android.app.usage.UsageStats;
-          import android.app.usage.UsageStatsManager;
+          import android.Manifest;
+          import android.app.AppOpsManager;
           import android.content.Context;
           import android.content.Intent;
+          import android.content.SharedPreferences;
           import android.content.pm.PackageManager;
-          import android.net.wifi.WifiInfo;
-          import android.net.wifi.WifiManager;
           import android.os.Build;
-          import android.os.Handler;
-          import android.os.IBinder;
-          import android.os.Looper;
-          import android.telephony.CellIdentityGsm;
-          import android.telephony.CellIdentityLte;
-          import android.telephony.CellIdentityWcdma;
-          import android.telephony.CellInfo;
-          import android.telephony.CellInfoGsm;
-          import android.telephony.CellInfoLte;
-          import android.telephony.CellInfoWcdma;
-          import android.telephony.CellSignalStrengthGsm;
-          import android.telephony.CellSignalStrengthLte;
-          import android.telephony.CellSignalStrengthWcdma;
-          import android.telephony.SignalStrength;
-          import android.telephony.TelephonyManager;
-          import androidx.core.app.NotificationCompat;
+          import android.os.Bundle;
+          import android.os.Process;
+          import android.provider.Settings;
+          import androidx.annotation.NonNull;
+          import androidx.appcompat.app.AppCompatActivity;
+          import androidx.core.app.ActivityCompat;
+          import androidx.core.content.ContextCompat;
+          import com.google.android.material.button.MaterialButton;
+          import java.util.ArrayList;
           import java.util.List;
 
-          public class SignalSamplingService extends Service {
-              private static final String CH = "signal_ch";
-              private Handler h;
-              private Runnable r;
-              private TelephonyManager tm;
-              private WifiManager wm;
-              private DatabaseHelper db;
-              private UsageStatsManager usm;
+          public class OnboardingActivity extends AppCompatActivity {
+              private static final int REQ_CODE = 100;
+              private MaterialButton btnLetsGo;
 
-              @Override public void onCreate() {
-                  super.onCreate();
-                  tm = (TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE);
-                  wm = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
-                  usm = (UsageStatsManager) getSystemService(Context.USAGE_STATS_SERVICE);
-                  db = new DatabaseHelper(this);
-                  NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-                  nm.createNotificationChannel(new NotificationChannel(CH, "Sampling", NotificationManager.IMPORTANCE_LOW));
-                  Notification n = new NotificationCompat.Builder(this, CH)
-                      .setContentTitle("SignalDeep Sampling")
-                      .setContentText("Collecting every 5s...")
-                      .setSmallIcon(android.R.drawable.ic_menu_info_details).build();
-                  startForeground(1, n);
-                  SignalLogger.log("Service", "onCreate — sampling started");
-                  h = new Handler(Looper.getMainLooper());
-                  r = new Runnable() {
-                      @Override public void run() {
-                          try { sample(); } catch (Throwable t) { SignalLogger.crash(t); }
-                          h.postDelayed(this, 5000);
-                      }
-                  };
-                  h.post(r);
+              @Override
+              protected void onCreate(Bundle b) {
+                  super.onCreate(b);
+                  SharedPreferences prefs = getSharedPreferences("app_prefs", MODE_PRIVATE);
+                  boolean isFirst = prefs.getBoolean("is_first_launch", true);
+
+                  // اگر اولین بار نیست و همه دسترسی‌ها هنوز فعال هستند، مستقیم برو به برنامه اصلی
+                  if (!isFirst && checkAllPermissions()) {
+                      startActivity(new Intent(this, MainActivity.class));
+                      finish();
+                      return;
+                  }
+
+                  // در غیر این صورت (یا اولین بار است یا دسترسی گرفته شده) صفحه راهنما را نشان بده
+                  setContentView(R.layout.activity_onboarding);
+                  btnLetsGo = findViewById(R.id.btn_lets_go);
+                  btnLetsGo.setOnClickListener(v -> requestPermissions());
               }
 
-              private void sample() {
-                  SignalSample s = new SignalSample();
-                  s.timestamp = System.currentTimeMillis();
-                  int dataType = 0;
-                  try {
-                      if (checkSelfPermission(android.Manifest.permission.READ_PHONE_STATE)
-                              == PackageManager.PERMISSION_GRANTED) dataType = tm.getDataNetworkType();
-                  } catch (Throwable t) { SignalLogger.debug("Service","type:"+t); }
-                  s.networkType = SignalInterpreter.networkName(dataType);
+              private boolean checkAllPermissions() {
+                  if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) return false;
+                  if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED) return false;
+                  if (Build.VERSION.SDK_INT <= 28 && ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) return false;
 
-                  try { SignalStrength ss = tm.getSignalStrength(); if (ss != null) s.level = ss.getLevel(); }
-                  catch (Throwable ignored) {}
+                  AppOpsManager appOps = (AppOpsManager) getSystemService(Context.APP_OPS_SERVICE);
+                  int mode = appOps.checkOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS, Process.myUid(), getPackageName());
+                  if (mode != AppOpsManager.MODE_ALLOWED) return false;
 
-                  try {
-                      List<CellInfo> infos = tm.getAllCellInfo();
-                      if (infos != null) for (CellInfo ci : infos) {
-                          if (ci instanceof CellInfoLte && SignalInterpreter.isLte(dataType)) {
-                              CellInfoLte c = (CellInfoLte) ci;
-                              CellSignalStrengthLte sig = c.getCellSignalStrength();
-                              CellIdentityLte id = c.getCellIdentity();
-                              s.power = sig.getRsrp();
-                              s.quality = sig.getRsrq();
-                              s.sinr = sig.getRssnr();
-                              s.cqi = (Build.VERSION.SDK_INT >= 26) ? sig.getCqi() : -1;
-                              if (s.level == 0) s.level = sig.getLevel();
-                              if (id.getCi() != Integer.MAX_VALUE) s.cellId = id.getCi();
-                              if (id.getPci() != Integer.MAX_VALUE) s.pci = id.getPci();
-                              if (id.getTac() != Integer.MAX_VALUE) s.areaCode = id.getTac();
-                              if (id.getEarfcn() != Integer.MAX_VALUE) s.freqCode = id.getEarfcn();
-                              if (id.getMcc() != Integer.MAX_VALUE) s.mcc = id.getMcc();
-                              if (id.getMnc() != Integer.MAX_VALUE) s.mnc = id.getMnc();
-                              s.score = MainActivity.nativeLteScore(s.power, s.quality, s.sinr, s.cqi);
-                              s.grade = SignalInterpreter.lteRsrpGrade(s.power) + " / " + SignalInterpreter.lteRsrqGrade(s.quality);
-                              break;
-                          } else if (ci instanceof CellInfoWcdma && SignalInterpreter.isWcdma(dataType)) {
-                              CellInfoWcdma c = (CellInfoWcdma) ci;
-                              CellSignalStrengthWcdma sig = c.getCellSignalStrength();
-                              CellIdentityWcdma id = c.getCellIdentity();
-                              s.power = sig.getDbm();
-                              boolean hasEcno = Build.VERSION.SDK_INT >= 30;
-                              int ecno = 0;
-                              if (hasEcno) { try { ecno = sig.getEcNo(); } catch (Throwable t) { hasEcno = false; } }
-                              s.quality = hasEcno ? ecno : -99;
-                              if (s.level == 0) s.level = sig.getLevel();
-                              if (id.getCid() != Integer.MAX_VALUE) s.cellId = id.getCid();
-                              if (id.getPsc() != Integer.MAX_VALUE) s.pci = id.getPsc();
-                              if (id.getLac() != Integer.MAX_VALUE) s.areaCode = id.getLac();
-                              if (id.getUarfcn() != Integer.MAX_VALUE) s.freqCode = id.getUarfcn();
-                              if (id.getMcc() != Integer.MAX_VALUE) s.mcc = id.getMcc();
-                              if (id.getMnc() != Integer.MAX_VALUE) s.mnc = id.getMnc();
-                              s.score = MainActivity.nativeWcdmaScore(s.power, ecno, hasEcno);
-                              s.grade = SignalInterpreter.wcdmaDbmGrade(s.power) +
-                                        (hasEcno ? " / " + SignalInterpreter.wcdmaEcnoGrade(ecno) : " (EcNo N/A)");
-                              break;
-                          } else if (ci instanceof CellInfoGsm && SignalInterpreter.isGsm(dataType)) {
-                              CellInfoGsm c = (CellInfoGsm) ci;
-                              CellSignalStrengthGsm sig = c.getCellSignalStrength();
-                              CellIdentityGsm id = c.getCellIdentity();
-                              s.power = sig.getDbm();
-                              s.quality = sig.getBitErrorRate();
-                              if (s.level == 0) s.level = sig.getLevel();
-                              if (id.getCid() != Integer.MAX_VALUE) s.cellId = id.getCid();
-                              if (id.getLac() != Integer.MAX_VALUE) s.areaCode = id.getLac();
-                              if (id.getArfcn() != Integer.MAX_VALUE) s.freqCode = id.getArfcn();
-                              if (id.getMcc() != Integer.MAX_VALUE) s.mcc = id.getMcc();
-                              if (id.getMnc() != Integer.MAX_VALUE) s.mnc = id.getMnc();
-                              s.score = 50;
-                              s.grade = SignalInterpreter.gsmDbmGrade(s.power);
-                              break;
-                          }
-                      }
-                  } catch (Throwable t) { SignalLogger.debug("Service","cells:"+t); }
-
-                  try {
-                      long now = System.currentTimeMillis();
-                      List<UsageStats> stats = usm.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, now - 60000, now);
-                      long latest = 0; String fg = "";
-                      if (stats != null) for (UsageStats u : stats)
-                          if (u.getLastTimeUsed() > latest) { latest = u.getLastTimeUsed(); fg = u.getPackageName(); }
-                      s.fgApp = fg;
-                  } catch (Throwable ignored) {}
-
-                  try {
-                      if (wm != null && wm.isWifiEnabled()) {
-                          WifiInfo wi = wm.getConnectionInfo();
-                          if (wi != null) {
-                              int wr = wi.getRssi();
-                              if (wr > -127 && wr < 0) {
-                                  s.wifiRssi = wr; s.wifiSsid = wi.getSSID();
-                              }
-                          }
-                      }
-                  } catch (Throwable ignored) {}
-
-                  db.insert(s);
-                  SignalLogger.debug("Sample",
-                      "net=" + s.networkType + " lvl=" + s.level +
-                      " power=" + s.power + " q=" + s.quality + " sinr=" + s.sinr + " cqi=" + s.cqi +
-                      " cid=" + s.cellId + " pci=" + s.pci + " area=" + s.areaCode +
-                      " freq=" + s.freqCode + " score=" + s.score +
-                      " fg=" + s.fgApp + " wifi=" + s.wifiRssi);
+                  return true;
               }
 
-              @Override public int onStartCommand(Intent i, int f, int st) { return START_STICKY; }
-              @Override public void onDestroy() {
-                  SignalLogger.log("Service","onDestroy — sampling stopped");
-                  if (h != null && r != null) h.removeCallbacks(r);
-                  super.onDestroy();
+              private void requestPermissions() {
+                  List<String> perms = new ArrayList<>();
+                  perms.add(Manifest.permission.ACCESS_FINE_LOCATION);
+                  perms.add(Manifest.permission.READ_PHONE_STATE);
+                  if (Build.VERSION.SDK_INT <= 28) {
+                      perms.add(Manifest.permission.WRITE_EXTERNAL_STORAGE);
+                  }
+                  ActivityCompat.requestPermissions(this, perms.toArray(new String[0]), REQ_CODE);
               }
-              @Override public IBinder onBind(Intent i) { return null; }
+
+              @Override
+              public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+                  super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+                  if (requestCode == REQ_CODE) {
+                      startActivity(new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS));
+                      proceed();
+                  }
+              }
+
+              @Override
+              protected void onResume() {
+                  super.onResume();
+                  if (btnLetsGo != null && btnLetsGo.isPressed()) {
+                      proceed();
+                  }
+              }
+
+              private void proceed() {
+                  SharedPreferences prefs = getSharedPreferences("app_prefs", MODE_PRIVATE);
+                  prefs.edit().putBoolean("is_first_launch", false).apply();
+                  startActivity(new Intent(this, MainActivity.class));
+                  finish();
+              }
           }
           EOF
 
@@ -751,250 +599,170 @@ jobs:
           package com.example.signaldeep;
 
           import android.Manifest;
-          import android.content.Intent;
           import android.content.pm.PackageManager;
           import android.os.Build;
           import android.os.Bundle;
           import android.os.Handler;
           import android.os.Looper;
-          import android.provider.Settings;
-          import android.telephony.CellIdentityGsm;
-          import android.telephony.CellIdentityLte;
-          import android.telephony.CellIdentityWcdma;
           import android.telephony.CellInfo;
-          import android.telephony.CellInfoGsm;
           import android.telephony.CellInfoLte;
-          import android.telephony.CellInfoWcdma;
-          import android.telephony.CellSignalStrengthGsm;
           import android.telephony.CellSignalStrengthLte;
-          import android.telephony.CellSignalStrengthWcdma;
+          import android.telephony.PhoneStateListener;
           import android.telephony.SignalStrength;
           import android.telephony.TelephonyManager;
           import android.widget.TextView;
-          import android.widget.Toast;
           import androidx.appcompat.app.AppCompatActivity;
-          import androidx.core.app.ActivityCompat;
           import androidx.core.content.ContextCompat;
-          import java.io.PrintWriter;
-          import java.io.StringWriter;
           import java.util.List;
 
           public class MainActivity extends AppCompatActivity {
-              public static String NATIVE_STATUS = "not loaded";
-              static {
-                  try { System.loadLibrary("native-lib"); NATIVE_STATUS = "OK"; }
-                  catch (Throwable t) { NATIVE_STATUS = "FAILED: " + t; }
-              }
-              public native String stringFromNative();
-              public static native int nativeLteScore(int rsrp, int rsrq, int sinr, int cqi);
-              public static native int nativeWcdmaScore(int dbm, int ecno, boolean hasEcno);
-
-              private TextView tvSignal;
               private TelephonyManager tm;
-              private Handler handler = new Handler(Looper.getMainLooper());
-              private Runnable poller = new Runnable() {
-                  @Override public void run() { refresh(); handler.postDelayed(this, 3000); }
+              private PhoneStateListener phoneStateListener;
+
+              private Handler dataHandler = new Handler(Looper.getMainLooper());
+              private Handler animHandler = new Handler(Looper.getMainLooper());
+
+              private TextView tvRsrp, tvRsrq, tvSinr, tvCqi;
+              private BarChartView chartRsrp, chartRsrq, chartSinr, chartCqi;
+
+              // Target values from actual hardware
+              private float targetRsrp = 0f, targetRsrq = 0f, targetSinr = 0f, targetCqi = 0f;
+              private int colorRsrp = 0xFF4CAF50, colorRsrq = 0xFF4CAF50, colorSinr = 0xFF4CAF50, colorCqi = 0xFF4CAF50;
+              private int rawRsrp = -140, rawRsrq = -20, rawSinr = 0, rawCqi = 0;
+
+              // Current values shown on charts (interpolated)
+              private float currentRsrp = 0f, currentRsrq = 0f, currentSinr = 0f, currentCqi = 0f;
+
+              private final Runnable animTicker = new Runnable() {
+                  @Override public void run() {
+                      // Smooth interpolation (10% step)
+                      currentRsrp += (targetRsrp - currentRsrp) * 0.1f;
+                      currentRsrq += (targetRsrq - currentRsrq) * 0.1f;
+                      currentSinr += (targetSinr - currentSinr) * 0.1f;
+                      currentCqi += (targetCqi - currentCqi) * 0.1f;
+
+                      chartRsrp.addValue(currentRsrp, colorRsrp);
+                      chartRsrq.addValue(currentRsrq, colorRsrq);
+                      chartSinr.addValue(currentSinr, colorSinr);
+                      chartCqi.addValue(currentCqi, colorCqi);
+
+                      animHandler.postDelayed(this, 100); // Move chart every 100ms
+                  }
               };
 
-              @Override protected void onCreate(Bundle b) {
+              private final Runnable textUpdater = new Runnable() {
+                  @Override public void run() {
+                      updateTextViews();
+                      dataHandler.postDelayed(this, 3000); // Update text every 3s
+                  }
+              };
+
+              @Override
+              protected void onCreate(Bundle b) {
                   super.onCreate(b);
                   setContentView(R.layout.activity_main);
-                  tvSignal = findViewById(R.id.tv_signal);
                   tm = (TelephonyManager) getSystemService(TELEPHONY_SERVICE);
-                  SignalLogger.log("Main","onCreate");
 
-                  findViewById(R.id.btn_perms).setOnClickListener(v -> {
-                      String[] perms;
-                      if (Build.VERSION.SDK_INT <= 28) {
-                          perms = new String[]{
-                              Manifest.permission.ACCESS_FINE_LOCATION,
-                              Manifest.permission.READ_PHONE_STATE,
-                              Manifest.permission.ACCESS_WIFI_STATE,
-                              Manifest.permission.CHANGE_WIFI_STATE,
-                              Manifest.permission.WRITE_EXTERNAL_STORAGE
-                          };
-                      } else {
-                          perms = new String[]{
-                              Manifest.permission.ACCESS_FINE_LOCATION,
-                              Manifest.permission.READ_PHONE_STATE,
-                              Manifest.permission.ACCESS_WIFI_STATE,
-                              Manifest.permission.CHANGE_WIFI_STATE
-                          };
-                      }
-                      ActivityCompat.requestPermissions(this, perms, 100);
-                  });
-                  findViewById(R.id.btn_usage).setOnClickListener(v -> {
-                      startActivity(new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS));
-                      SignalLogger.log("Main","opened Usage Access settings");
-                  });
-                  findViewById(R.id.btn_start).setOnClickListener(v -> {
-                      try {
-                          ContextCompat.startForegroundService(this, new Intent(this, SignalSamplingService.class));
-                          Toast.makeText(this, "Sampling started", Toast.LENGTH_SHORT).show();
-                      } catch (Throwable t) { SignalLogger.crash(t); }
-                  });
-                  findViewById(R.id.btn_stop).setOnClickListener(v -> {
-                      stopService(new Intent(this, SignalSamplingService.class));
-                      Toast.makeText(this, "Stopped", Toast.LENGTH_SHORT).show();
-                  });
-                  findViewById(R.id.btn_history).setOnClickListener(v ->
-                      startActivity(new Intent(this, CorrelationActivity.class)));
+                  tvRsrp = findViewById(R.id.tv_rsrp_val);
+                  tvRsrq = findViewById(R.id.tv_rsrq_val);
+                  tvSinr = findViewById(R.id.tv_sinr_val);
+                  tvCqi = findViewById(R.id.tv_cqi_val);
+
+                  chartRsrp = findViewById(R.id.chart_rsrp);
+                  chartRsrq = findViewById(R.id.chart_rsrq);
+                  chartSinr = findViewById(R.id.chart_sinr);
+                  chartCqi = findViewById(R.id.chart_cqi);
+
                   findViewById(R.id.btn_loginfo).setOnClickListener(v -> {
                       java.io.File f = SignalLogger.getFile();
                       String path = (f == null) ? "unavailable" : f.getAbsolutePath();
                       new androidx.appcompat.app.AlertDialog.Builder(this)
-                          .setTitle("Log file")
-                          .setMessage(path)
+                          .setTitle("Log file").setMessage(path)
                           .setPositiveButton("OK", null).show();
-                      SignalLogger.log("Main","log path: " + path);
                   });
-              }
 
-              @Override protected void onResume() { super.onResume(); handler.post(poller); }
-              @Override protected void onPause() { super.onPause(); handler.removeCallbacks(poller); }
-
-              private void refresh() {
-                  StringBuilder sb = new StringBuilder();
-                  sb.append("Native: ").append(NATIVE_STATUS).append("\n");
-                  try {
-                      sb.append("C++: ").append(stringFromNative()).append("\n\n");
-                      doRefresh(sb);
-                  } catch (Throwable t) {
-                      SignalLogger.crash(t);
-                      StringWriter sw = new StringWriter();
-                      t.printStackTrace(new PrintWriter(sw));
-                      sb.append("\n=== ERROR in refresh ===\n").append(sw.toString());
-                  }
-                  tvSignal.setText(sb.toString());
-              }
-
-              private void doRefresh(StringBuilder sb) {
-                  int dataType = 0;
-                  try {
-                      if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_STATE)
-                              == PackageManager.PERMISSION_GRANTED) dataType = tm.getDataNetworkType();
-                  } catch (Throwable t) { sb.append("type err: ").append(t).append("\n"); }
-                  sb.append("Active data: ").append(SignalInterpreter.networkName(dataType)).append("\n");
-
-                  boolean hasLoc = ContextCompat.checkSelfPermission(this,
-                      Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
-                  if (!hasLoc) { sb.append("Grant LOCATION permission first.\n"); return; }
-
-                  SignalStrength ss = null;
-                  try { ss = tm.getSignalStrength(); } catch (Throwable ignored) {}
-                  if (ss != null) sb.append("System level: ").append(ss.getLevel()).append("/4 ")
-                      .append(SignalInterpreter.bars(ss.getLevel())).append("\n");
-
-                  List<CellInfo> infos = null;
-                  try { infos = tm.getAllCellInfo(); }
-                  catch (Throwable t) { sb.append("getAllCellInfo err: ").append(t).append("\n"); }
-                  if (infos == null || infos.isEmpty()) {
-                      sb.append("No cell info (Samsung often hides).\n"); return;
-                  }
-
-                  for (CellInfo ci : infos) {
-                      try {
-                          if (ci instanceof CellInfoLte && SignalInterpreter.isLte(dataType)) {
-                              CellInfoLte c = (CellInfoLte) ci;
-                              CellSignalStrengthLte sig = c.getCellSignalStrength();
-                              CellIdentityLte id = c.getCellIdentity();
-                              int rsrp = sig.getRsrp(), rsrq = sig.getRsrq(), sinr = sig.getRssnr();
-                              int cqi = (Build.VERSION.SDK_INT >= 26) ? sig.getCqi() : -1;
-                              int score = nativeLteScore(rsrp, rsrq, sinr, cqi);
-                              sb.append("=== 4G LTE ===\n");
-                              sb.append("RSRP: ").append(rsrp).append(" dBm → ")
-                                .append(SignalInterpreter.lteRsrpGrade(rsrp)).append("\n");
-                              sb.append("RSRQ: ").append(rsrq).append(" dB → ")
-                                .append(SignalInterpreter.lteRsrqGrade(rsrq)).append("\n");
-                              sb.append("SINR: ").append(sinr).append(" → ")
-                                .append(SignalInterpreter.lteSinrGrade(sinr)).append("\n");
-                              if (cqi >= 0) {
-                                  sb.append("CQI:  ").append(cqi).append(" → ")
-                                    .append(SignalInterpreter.lteCqiGrade(cqi)).append("\n");
-                              }
-                              if (Build.VERSION.SDK_INT >= 30) {
-                                  try {
-                                      int rssi = sig.getRssi();
-                                      if (rssi > -128) sb.append("RSSI: ").append(rssi).append(" dBm\n");
-                                  } catch (Throwable ignored) {}
-                              }
-                              sb.append("Level: ").append(sig.getLevel()).append("/4 ")
-                                .append(SignalInterpreter.bars(sig.getLevel())).append("\n");
-                              if (id.getCi() != Integer.MAX_VALUE) sb.append("CellID: ").append(id.getCi()).append("\n");
-                              if (id.getPci() != Integer.MAX_VALUE) sb.append("PCI: ").append(id.getPci()).append("\n");
-                              if (id.getTac() != Integer.MAX_VALUE) sb.append("TAC: ").append(id.getTac()).append("\n");
-                              if (id.getEarfcn() != Integer.MAX_VALUE) sb.append("EARFCN: ").append(id.getEarfcn()).append("\n");
-                              if (id.getMcc() != Integer.MAX_VALUE)
-                                  sb.append("MCC/MNC: ").append(id.getMcc()).append("/").append(id.getMnc()).append("\n");
-                              sb.append("SCORE: ").append(score).append("/100 → ")
-                                .append(SignalInterpreter.scoreToGrade(score)).append("\n\n");
-                          } else if (ci instanceof CellInfoWcdma && SignalInterpreter.isWcdma(dataType)) {
-                              CellInfoWcdma c = (CellInfoWcdma) ci;
-                              CellSignalStrengthWcdma sig = c.getCellSignalStrength();
-                              CellIdentityWcdma id = c.getCellIdentity();
-                              int dbm = sig.getDbm();
-                              boolean hasEcno = Build.VERSION.SDK_INT >= 30;
-                              int ecno = 0;
-                              if (hasEcno) { try { ecno = sig.getEcNo(); } catch (Throwable t) { hasEcno = false; } }
-                              int score = nativeWcdmaScore(dbm, ecno, hasEcno);
-                              sb.append("=== 3G WCDMA ===\n");
-                              sb.append("RSCP/Dbm: ").append(dbm).append(" dBm → ")
-                                .append(SignalInterpreter.wcdmaDbmGrade(dbm)).append("\n");
-                              if (hasEcno)
-                                  sb.append("Ec/Io: ").append(ecno).append(" dB → ")
-                                    .append(SignalInterpreter.wcdmaEcnoGrade(ecno)).append("\n");
-                              else
-                                  sb.append("Ec/Io: N/A (Android 8 — needs API 30+)\n");
-                              sb.append("Level: ").append(sig.getLevel()).append("/4 ")
-                                .append(SignalInterpreter.bars(sig.getLevel())).append("\n");
-                              if (id.getCid() != Integer.MAX_VALUE) sb.append("CellID: ").append(id.getCid()).append("\n");
-                              if (id.getPsc() != Integer.MAX_VALUE) sb.append("PSC: ").append(id.getPsc()).append("\n");
-                              if (id.getLac() != Integer.MAX_VALUE) sb.append("LAC: ").append(id.getLac()).append("\n");
-                              if (id.getUarfcn() != Integer.MAX_VALUE) sb.append("UARFCN: ").append(id.getUarfcn()).append("\n");
-                              if (id.getMcc() != Integer.MAX_VALUE)
-                                  sb.append("MCC/MNC: ").append(id.getMcc()).append("/").append(id.getMnc()).append("\n");
-                              sb.append("SCORE: ").append(score).append("/100 → ")
-                                .append(SignalInterpreter.scoreToGrade(score)).append("\n\n");
-                          } else if (ci instanceof CellInfoGsm && SignalInterpreter.isGsm(dataType)) {
-                              CellInfoGsm c = (CellInfoGsm) ci;
-                              CellSignalStrengthGsm sig = c.getCellSignalStrength();
-                              CellIdentityGsm id = c.getCellIdentity();
-                              int dbm = sig.getDbm();
-                              sb.append("=== 2G GSM ===\n");
-                              sb.append("RxLev: ").append(dbm).append(" dBm → ")
-                                .append(SignalInterpreter.gsmDbmGrade(dbm)).append("\n");
-                              sb.append("BER: ").append(sig.getBitErrorRate()).append("\n");
-                              sb.append("Level: ").append(sig.getLevel()).append("/4 ")
-                                .append(SignalInterpreter.bars(sig.getLevel())).append("\n");
-                              if (id.getCid() != Integer.MAX_VALUE) sb.append("CellID: ").append(id.getCid()).append("\n");
-                              if (id.getLac() != Integer.MAX_VALUE) sb.append("LAC: ").append(id.getLac()).append("\n\n");
-                          }
-                      } catch (Throwable t) {
-                          SignalLogger.crash(t);
-                          sb.append("Cell parse err: ").append(t).append("\n\n");
+                  // Setup PhoneStateListener
+                  phoneStateListener = new PhoneStateListener() {
+                      @Override
+                      public void onCellInfoChanged(List<CellInfo> cellInfo) {
+                          super.onCellInfoChanged(cellInfo);
+                          fetchSignalData(); // Fetch immediately when system reports a change
                       }
+
+                      @Override
+                      public void onSignalStrengthsChanged(SignalStrength signalStrength) {
+                          super.onSignalStrengthsChanged(signalStrength);
+                          fetchSignalData();
+                      }
+                  };
+              }
+
+              @Override
+              protected void onStart() {
+                  super.onStart();
+                  if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED &&
+                      ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED) {
+                      // Register listener
+                      tm.listen(phoneStateListener, PhoneStateListener.LISTEN_CELL_INFO | PhoneStateListener.LISTEN_SIGNAL_STRENGTHS);
+                  }
+                  // Start UI loops
+                  animHandler.post(animTicker);
+                  dataHandler.post(textUpdater);
+                  fetchSignalData(); // Initial fetch
+              }
+
+              @Override
+              protected void onStop() {
+                  super.onStop();
+                  // Stop everything when app is in background
+                  tm.listen(phoneStateListener, PhoneStateListener.LISTEN_NONE);
+                  animHandler.removeCallbacks(animTicker);
+                  dataHandler.removeCallbacks(textUpdater);
+                  SignalLogger.log("Main", "App went to background. Sampling stopped.");
+              }
+
+              private void fetchSignalData() {
+                  if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) return;
+
+                  try {
+                      List<CellInfo> infos = tm.getAllCellInfo();
+                      if (infos != null) {
+                          for (CellInfo ci : infos) {
+                              if (ci instanceof CellInfoLte) {
+                                  CellInfoLte c = (CellInfoLte) ci;
+                                  CellSignalStrengthLte sig = c.getCellSignalStrength();
+
+                                  rawRsrp = sig.getRsrp();
+                                  rawRsrq = sig.getRsrq();
+                                  rawSinr = sig.getRssnr();
+                                  rawCqi = (Build.VERSION.SDK_INT >= 26) ? sig.getCqi() : 0;
+
+                                  // Map to 0..1 for chart target
+                                  targetRsrp = Math.max(0, Math.min(1, (rawRsrp + 140f) / 60f));
+                                  targetRsrq = Math.max(0, Math.min(1, (rawRsrq + 20f) / 15f));
+                                  targetSinr = Math.max(0, Math.min(1, (rawSinr + 10f) / 35f));
+                                  targetCqi = Math.max(0, Math.min(1, rawCqi / 15f));
+
+                                  colorRsrp = SignalInterpreter.colorForRsrp(rawRsrp);
+                                  colorRsrq = SignalInterpreter.colorForRsrq(rawRsrq);
+                                  colorSinr = SignalInterpreter.colorForSinr(rawSinr);
+                                  colorCqi = SignalInterpreter.colorForCqi(rawCqi);
+
+                                  SignalLogger.debug("Sample", "RSRP=" + rawRsrp + " RSRQ=" + rawRsrq + " SINR=" + rawSinr + " CQI=" + rawCqi);
+                                  break;
+                              }
+                          }
+                      }
+                  } catch (Throwable t) {
+                      SignalLogger.debug("Sample", "Error: " + t);
                   }
               }
-          }
-          EOF
 
-          cat > app/src/main/java/com/example/signaldeep/CorrelationActivity.java << 'EOF'
-          package com.example.signaldeep;
-
-          import android.os.Bundle;
-          import android.widget.ArrayAdapter;
-          import android.widget.ListView;
-          import androidx.appcompat.app.AppCompatActivity;
-          import java.util.List;
-
-          public class CorrelationActivity extends AppCompatActivity {
-              @Override protected void onCreate(Bundle b) {
-                  super.onCreate(b);
-                  setContentView(R.layout.activity_correlation);
-                  ListView lv = findViewById(R.id.list);
-                  DatabaseHelper db = new DatabaseHelper(this);
-                  List<String> rows = db.getRecent(200);
-                  lv.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, rows));
+              private void updateTextViews() {
+                  tvRsrp.setText("RSRP: " + rawRsrp + " dBm\n" + SignalInterpreter.lteRsrpGrade(rawRsrp));
+                  tvRsrq.setText("RSRQ: " + rawRsrq + " dB\n" + SignalInterpreter.lteRsrqGrade(rawRsrq));
+                  tvSinr.setText("SINR: " + rawSinr + "\n" + SignalInterpreter.lteSinrGrade(rawSinr));
+                  tvCqi.setText("CQI: " + rawCqi + "\n" + SignalInterpreter.lteCqiGrade(rawCqi));
               }
           }
           EOF
@@ -1007,16 +775,15 @@ jobs:
             app/build.gradle app/src/main/AndroidManifest.xml \
             app/src/main/res/values/strings.xml \
             app/src/main/res/values/colors.xml \
+            app/src/main/res/drawable/card_bg.xml \
+            app/src/main/res/layout/activity_onboarding.xml \
             app/src/main/res/layout/activity_main.xml \
-            app/src/main/res/layout/activity_correlation.xml \
             app/src/main/java/com/example/signaldeep/SignalLogger.java \
             app/src/main/java/com/example/signaldeep/SignalDeepApp.java \
             app/src/main/java/com/example/signaldeep/SignalInterpreter.java \
-            app/src/main/java/com/example/signaldeep/SignalSample.java \
-            app/src/main/java/com/example/signaldeep/DatabaseHelper.java \
-            app/src/main/java/com/example/signaldeep/SignalSamplingService.java \
+            app/src/main/java/com/example/signaldeep/BarChartView.java \
+            app/src/main/java/com/example/signaldeep/OnboardingActivity.java \
             app/src/main/java/com/example/signaldeep/MainActivity.java \
-            app/src/main/java/com/example/signaldeep/CorrelationActivity.java \
             app/src/main/cpp/CMakeLists.txt app/src/main/cpp/native-lib.cpp ; do
             [ -f "$f" ] && echo "OK: $f" || { echo "MISSING: $f"; exit 1; }
           done
